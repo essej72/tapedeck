@@ -614,10 +614,25 @@ export function mountDeck(lib: { tapes: PackedTape[]; slotSeconds: number }, pre
     const address = $<HTMLInputElement>("load-address").value.trim();
     status.textContent = "Fetching…";
     try {
-      const res = await fetch("https://api.mainnet-beta.solana.com", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getAccountInfo", params: [address, { encoding: "base64" }] }) });
-      const body = await res.json();
-      const data = body?.result?.value?.data?.[0];
-      if (!data) throw new Error("no account at that address");
+      // Keyless endpoints that answer a browser; the first that responds decides.
+      let data: string | undefined;
+      let problem = "no endpoint answered";
+      for (const url of ["https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com"]) {
+        try {
+          const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getAccountInfo", params: [address, { encoding: "base64" }] }) });
+          const body = await res.json();
+          if (body?.error) {
+            problem = `the endpoint refused (${body.error.message})`;
+            continue;
+          }
+          data = body?.result?.value?.data?.[0];
+          problem = "no account at that address";
+          break;
+        } catch {
+          problem = "the endpoint could not be reached from this page";
+        }
+      }
+      if (!data) throw new Error(problem);
       const config = configFromBytes(Uint8Array.from(atob(data), (c) => c.charCodeAt(0)));
       loaded = { config, label: `config ${address.slice(0, 6)}…`, note: "" };
       $("preset-note").textContent = `Loaded ${address.slice(0, 6)}… from mainnet.`;
