@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tapedeck pitch</title>
+<meta name="description" content="Tapedeck: play back any DBC launch, fly it again under a different config, or trade it yourself.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Michroma&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* Layout: a cassette inlay card. Two sides, three tracks each, read top to bottom. */
+  .inlay { max-width: 920px; margin-inline: auto; }
+  .cover { padding-block: 44px 30px; border-bottom: 1px solid var(--rule); }
+  .cover h1 { font: 400 clamp(30px, 6vw, 54px)/1.05 var(--display); letter-spacing: 0.16em; margin: 0 0 18px; }
+  .cover p { font-size: clamp(17px, 2.2vw, 21px); line-height: 1.4; max-width: 34em; margin: 0 0 20px; text-wrap: balance; }
+  .links { display: flex; flex-wrap: wrap; gap: 10px; }
+  .links a { text-decoration: none; display: inline-block; }
+  .side { padding-block: 26px 6px; }
+  .side > h2 { font: 400 13px/1 var(--display); letter-spacing: 0.3em; margin: 0 0 4px; padding: 8px 12px; color: var(--glass); display: inline-block; }
+  .side.a > h2 { background: var(--side-a); } .side.b > h2 { background: var(--side-b); }
+  .track { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 18px; padding-block: 22px; border-bottom: 1px solid var(--rule); }
+  .track > span { font: 500 15px/1.5 var(--mono); color: var(--ink-2); }
+  .track h3 { font: 600 21px/1.25 var(--body); margin: 0 0 8px; text-wrap: balance; }
+  .track p, .track li { margin: 0 0 9px; max-width: 66ch; }
+  .track ul { margin: 0; padding-left: 18px; }
+  .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 14px 0 6px; }
+  .figures div { background: var(--glass); color: var(--glass-ink); border-radius: 3px; padding: 12px 14px; }
+  .figures b { display: block; font: 500 26px/1.1 var(--mono); color: var(--side-a); font-variant-numeric: tabular-nums; }
+  .figures .tb { color: var(--side-b); }
+  .figures span { font-size: 13px; line-height: 1.35; display: block; margin-top: 6px; color: var(--glass-ink); }
+  .foot { padding-block: 22px; color: var(--ink-2); font-size: 13px; }
+  @media (max-width: 560px) { .track { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<div class="inlay">
+  <header class="cover">
+    <h1>TAPEDECK</h1>
+    <p>Play back any DBC launch. Fly it again under a different config. Or take the stick and trade it yourself. On an engine that is checked against the chain.</p>
+    <div class="links">
+      <a class="key" href="./">Open the deck</a>
+      <a class="key" href="./#evidence">Evidence</a>
+      <a class="key" href="./#method">Method</a>
+      <a class="key" href="https://github.com/essej72/tapedeck">Code</a>
+    </div>
+  </header>
+
+  <section class="side a">
+    <h2>SIDE A</h2>
+    <div class="track"><span>A1</span><div>
+      <h3>DBC makes every launch parameter a choice. There is no way to hear a choice before it meets real money.</h3>
+      <p>Curve shape, launch fee, who gets the fee, who owns the liquidity after migration: a launchpad sets all of it in one config, once, and then thousands of launches live with it. The tools for choosing are calculators. They show the curve. They do not show what real order flow does on it: the bundle in the launch slot, the wallets that sell into the first minute, the buyers who arrive late.</p>
+    </div></div>
+    <div class="track"><span>A2</span><div>
+      <h3>A tape is a real launch, order by order. The deck plays it.</h3>
+      <ul>
+        <li><b>Side A</b> plays the launch on the curve it happened on.</li>
+        <li><b>Side B</b> flies the same orders through any config: one built with the SDK's own curve builders, or any config on mainnet, loaded by address. Every buyer spends the same SOL at the same moment; every seller sells the same share of what they hold by then. The ledger shows who paid and who collected, cohort by cohort, under each.</li>
+        <li><b>REC</b> gives you a paper wallet. Your orders go onto the tape at the moment you press, and the rest of the launch trades against the price you left behind.</li>
+        <li>A config you like leaves as a file for Meteora's Invent CLI.</li>
+      </ul>
+      <p>The shelf holds 57 tapes: 13 DBC pools read from the chain and 44 pump.fun launches recorded wallet by wallet.</p>
+    </div></div>
+    <div class="track"><span>A3</span><div>
+      <h3>It is not a simulator's guess. It is checked.</h3>
+      <div class="figures">
+        <div><b>29,426</b><span>real mainnet swaps replayed from pool creation, across 196 pools and 50 kinds of config</span></div>
+        <div><b>0</b><span>mismatches, comparing amount in, amount out, next price and every fee, to the lamport</span></div>
+        <div><b class="tb">0.50%</b><span>worst gap between replayed and recorded tokens on nine buys in ten, on any pump.fun tape on the shelf</span></div>
+      </div>
+      <p>Prices and fees come from Meteora's SDK. Around them the engine does what the program does and the SDK leaves out: the volatility tracker before and after each swap, the fee buckets, the minimum-fee first swap, completion at the threshold. A pump.fun tape is kept only if a DBC config equal to pump.fun's curve reproduces its recorded fills; 174 of 332 did not and were left out.</p>
+    </div></div>
+  </section>
+
+  <section class="side b">
+    <h2>SIDE B</h2>
+    <div class="track"><span>B1</span><div>
+      <h3>What the deck found: a graduation only means something where it was expensive to fake.</h3>
+      <p>The cheapest way onto every "just migrated" feed is to buy your own curve in the launch transaction. The engine prices that round trip for any config: buy the curve, take back what the config hands a creator, sell out. Then every config and pool on mainnet was read, 1,768,464 pools under 543,738 configs.</p>
+      <div class="figures">
+        <div><b>84%</b><span>of 1,131,326 pools completed, where faking costs under 2% of the raise</span></div>
+        <div><b class="tb">2.7%</b><span>of 438,317 pools completed, where it costs 10% or more</span></div>
+        <div><b>39 of 50</b><span>pump.fun graduations recorded on 2026-10-10 were one party buying the curve in the launch slot</span></div>
+      </div>
+      <p>On pump.fun's own curve the round trip costs about 19 SOL, mostly the fifth of the raise that stays behind in the pool. A config decides that number. Tapedeck shows it next to every design, and shows what the same buyout tape would have paid under yours.</p>
+    </div></div>
+    <div class="track"><span>B2</span><div>
+      <h3>Who it is for</h3>
+      <ul>
+        <li><b>Launchpad builders:</b> hear a config before shipping it, against the flow it will actually meet, and export it.</li>
+        <li><b>Terminals:</b> one number per config that says what a graduation under it cost. The census ships as a JSON file.</li>
+        <li><b>Traders:</b> practice on real launches with no money and an honest ledger. Most cohorts lose; the deck shows which.</li>
+        <li><b>Meteora:</b> a conformance harness for the SDK. Any pool, any release: <code>node src/validate.ts &lt;pool&gt;</code>.</li>
+      </ul>
+    </div></div>
+    <div class="track"><span>B3</span><div>
+      <h3>Where it stops, and what is next</h3>
+      <ul>
+        <li>A replay is a stress test, not a forecast: it prices the play on the tape under your config, it does not predict how traders would adapt. REC is the honest way to try.</li>
+        <li>After migration the pool is modelled as constant product with the config's flat fee.</li>
+        <li>The tapes cover days, not seasons.</li>
+        <li>Found on the way, in the SDK: <code>getPoolConfigsByOwner</code> filters config accounts at byte 72, which is the leftover receiver, not the fee claimer at byte 40. For 37% of configs on mainnet (200,278) the two differ and the call misses them. Reproduced on mainnet; the fix is one number.</li>
+        <li>Also found: the Invent config's comments size slot-based fee schedules at 0.4 s a slot. Mainnet slots ran at 0.219 s on 2026-10-10, so a schedule written as "60 seconds" in slots lasts about 33. The deck writes schedules in seconds.</li>
+        <li>Next: a live recorder for new DBC pools, tapes for stock-quoted launches, and the migrated pool's own fee scheduler.</li>
+      </ul>
+    </div></div>
+  </section>
+
+  <footer class="foot">Built in the Crypto World's Fair window with Claude Code. No API keys, no private data: everything here can be rebuilt from public RPC and public feeds with the scripts in the repo. Figures as of 2026-10-10.</footer>
+</div>
+</body>
+</html>

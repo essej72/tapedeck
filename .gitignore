@@ -1,0 +1,8 @@
+node_modules/
+# raw collections: over a gigabyte, rebuilt by the scripts in src/
+/data/
+# the full census table; the site ships the trimmed evidence.json built from it
+web/data/census.json
+web/data/census_all.json
+# single-page copy of the site for a private preview
+/artifact/

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tapedeck</title>
+<meta name="description" content="Play back a real token launch, fly it again under any Meteora DBC config, or trade it yourself. The engine is checked against the chain.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Michroma&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="faceplate">
+  <div class="brand">
+    <span class="brand-name">TAPEDECK</span>
+    <span class="brand-sub">launch recorder for Meteora DBC</span>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" role="tab" id="tab-deck" aria-controls="view-deck" aria-selected="true">Deck</button>
+    <button class="tab" role="tab" id="tab-evidence" aria-controls="view-evidence" aria-selected="false">Evidence</button>
+    <button class="tab" role="tab" id="tab-method" aria-controls="view-method" aria-selected="false">Method</button>
+  </nav>
+</header>
+
+<main>
+<section id="view-deck" class="view" role="tabpanel" aria-labelledby="tab-deck">
+  <p class="lede">A tape is a real launch: every buy and sell, in order. Side&nbsp;A plays it on the curve it happened on. Side&nbsp;B flies the same orders through a config you choose. Press <b>REC</b> to trade it yourself.</p>
+
+  <div class="deck">
+    <aside class="shelf" aria-label="Tapes">
+      <div class="label-row"><h2 class="engraved">Tapes</h2><span id="shelf-count" class="muted"></span></div>
+      <div class="chips" id="kind-chips" role="group" aria-label="Filter tapes by kind"></div>
+      <ol class="spines" id="spines"></ol>
+      <button class="key wide" id="btn-random" type="button">Load one at random, unlabelled</button>
+    </aside>
+
+    <div class="well">
+      <div class="window">
+        <div class="window-head">
+          <div id="tape-title" class="tape-title"></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <canvas id="chart" aria-label="Market cap over time for both sides"></canvas>
+        <div class="readouts" id="readouts"></div>
+      </div>
+
+      <div class="transport">
+        <div class="counter" aria-live="off"><span id="counter-time">00:00.0</span><span id="counter-orders" class="counter-sub"></span></div>
+        <div class="keys">
+          <button class="key" id="btn-rewind" type="button" aria-label="Rewind to the launch">&#9198;</button>
+          <button class="key key-play" id="btn-play" type="button" aria-label="Play">&#9654;</button>
+          <button class="key" id="btn-end" type="button" aria-label="Run to the end of the tape">&#9197;</button>
+          <button class="key key-rec" id="btn-rec" type="button" aria-pressed="false">&#9679; REC</button>
+        </div>
+        <label class="speed"><span class="engraved">Speed</span>
+          <select id="speed">
+            <option value="0.25">&frac14;&times;</option>
+            <option value="0.5">&frac12;&times;</option>
+            <option value="1" selected>1&times;</option>
+            <option value="2">2&times;</option>
+            <option value="4">4&times;</option>
+          </select>
+        </label>
+        <input id="scrub" class="scrub" type="range" min="0" max="1000" value="1000" aria-label="Position on the tape">
+      </div>
+
+      <div class="stick" id="stick" hidden>
+        <div class="stick-row">
+          <span class="engraved">Your paper wallet</span>
+          <span id="you-cash" class="num"></span>
+          <span id="you-bag" class="num"></span>
+          <span id="you-pnl" class="num"></span>
+          <label class="monitor"><span class="engraved">Flying on</span>
+            <select id="you-side"><option value="A">Side A</option><option value="B">Side B</option></select>
+          </label>
+        </div>
+        <div class="stick-row">
+          <span class="engraved">Buy</span>
+          <button class="key" data-buy="0.1" type="button">0.1</button>
+          <button class="key" data-buy="0.5" type="button">0.5</button>
+          <button class="key" data-buy="1" type="button">1</button>
+          <button class="key" data-buy="2" type="button">2 SOL</button>
+          <span class="engraved gap">Sell</span>
+          <button class="key" data-sell="0.25" type="button">25%</button>
+          <button class="key" data-sell="0.5" type="button">50%</button>
+          <button class="key" data-sell="1" type="button">All</button>
+        </div>
+        <p class="muted small" id="stick-note">Your orders go onto both sides at the moment you press, after everything the tape had done by then. The rest of the tape then trades against the price you left behind.</p>
+      </div>
+
+      <div class="ledger-wrap">
+        <div class="label-row"><h2 class="engraved">Ledger</h2><span class="muted small">SOL. Net cash is what came out minus what went in; tokens still held are shown as a share of supply, not as money.</span></div>
+        <div class="table-scroll"><table class="ledger" id="ledger"></table></div>
+        <div class="fee-split" id="fee-split"></div>
+      </div>
+    </div>
+
+    <aside class="sideb" aria-label="Side B config">
+      <div class="label-row"><h2 class="engraved">Side B config</h2></div>
+      <label class="field"><span>Start from</span>
+        <select id="preset"></select>
+      </label>
+      <p class="muted small" id="preset-note"></p>
+      <fieldset id="custom" class="custom">
+        <legend class="engraved">Fee at launch</legend>
+        <label class="field"><span>Starts at</span><span class="with-unit"><input id="f-start" type="number" min="0.25" max="99" step="0.25"><i>%</i></span></label>
+        <label class="field"><span>Settles at</span><span class="with-unit"><input id="f-end" type="number" min="0.25" max="99" step="0.25"><i>%</i></span></label>
+        <label class="field"><span>Over</span><span class="with-unit"><input id="f-secs" type="number" min="0" max="86400" step="1"><i>s</i></span></label>
+        <label class="field"><span>Decay</span>
+          <select id="f-mode"><option value="1">exponential</option><option value="0">linear</option></select>
+        </label>
+        <label class="check"><input id="f-dyn" type="checkbox"> <span>Add the volatility fee</span></label>
+        <label class="field"><span>Creator's share of fees</span><span class="with-unit"><input id="f-creator" type="number" min="0" max="100" step="1"><i>%</i></span></label>
+        <label class="check"><input id="f-first" type="checkbox"> <span>Creator's buy in the launch transaction pays the settled fee</span></label>
+      </fieldset>
+      <fieldset class="custom" id="custom-curve">
+        <legend class="engraved">Curve and liquidity</legend>
+        <label class="field"><span>First market cap</span><span class="with-unit"><input id="c-start" type="number" min="1" step="1"><i>SOL</i></span></label>
+        <label class="field"><span>Graduates at</span><span class="with-unit"><input id="c-end" type="number" min="2" step="1"><i>SOL</i></span></label>
+        <label class="field"><span>Shape</span>
+          <select id="c-shape">
+            <option value="cp">constant product</option>
+            <option value="flat">flat start, steep finish</option>
+            <option value="steep">steep start, flat finish</option>
+          </select>
+        </label>
+        <label class="field"><span>Liquidity locked for good</span><span class="with-unit"><input id="c-lock" type="number" min="10" max="100" step="5"><i>%</i></span></label>
+      </fieldset>
+      <p class="error" id="config-error" hidden></p>
+      <div class="fake">
+        <h3 class="engraved">Faking a graduation here costs</h3>
+        <div id="fake-cost" class="fake-cost"></div>
+        <p class="muted small" id="fake-note"></p>
+      </div>
+      <div class="export">
+        <button class="key wide" id="btn-export" type="button">Copy as Meteora Invent config</button>
+        <span id="export-status" class="muted small" role="status"></span>
+      </div>
+      <details class="load">
+        <summary class="engraved">Load a config from mainnet</summary>
+        <label class="field stack"><span>Config address</span><input id="load-address" type="text" spellcheck="false" autocomplete="off" placeholder="a PoolConfig account"></label>
+        <button class="key wide" id="btn-load" type="button">Fetch and load onto Side B</button>
+        <span id="load-status" class="muted small" role="status"></span>
+      </details>
+    </aside>
+  </div>
+</section>
+
+<section id="view-evidence" class="view" role="tabpanel" aria-labelledby="tab-evidence" hidden>
+  <div class="prose">
+    <h1>What a graduation costs</h1>
+    <p id="ev-lede"></p>
+  </div>
+  <div class="figure">
+    <canvas id="scatter" aria-label="Completion rate against the cost of faking a graduation, one bubble per design"></canvas>
+    <p class="caption" id="scatter-caption"></p>
+    <div id="scatter-tip" class="tip" hidden></div>
+  </div>
+  <div class="prose">
+    <h2>The designs in use</h2>
+    <p>A design is a set of configs with identical trading mechanics, whoever collects the fees. The cost is the cheapest round trip for someone who completes their own curve at launch and leaves: buy it all, take back whatever the config hands them, sell every token into what is left.</p>
+  </div>
+  <div class="table-scroll"><table class="plain" id="design-table"></table></div>
+  <div class="prose">
+    <h2>Checked against the chain</h2>
+    <p id="conf-lede"></p>
+  </div>
+  <div class="table-scroll"><table class="plain" id="conf-table"></table></div>
+  <div class="prose">
+    <h2>The tapes</h2>
+    <p id="tape-lede"></p>
+  </div>
+</section>
+
+<section id="view-method" class="view" role="tabpanel" aria-labelledby="tab-method" hidden>
+  <div class="prose" id="method"></div>
+</section>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

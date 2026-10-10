@@ -1,0 +1,32 @@
+{
+  "name": "tapedeck",
+  "version": "0.1.0",
+  "description": "Play back any Meteora DBC launch, fly it again under a different config, or trade it yourself. The engine is checked against the chain.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/essej72/tapedeck"
+  },
+  "homepage": "https://essej72.github.io/tapedeck/",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "census": "node src/census/pull.ts",
+    "designs": "node src/census/designs.ts",
+    "test": "node --test \"test/*.test.ts\"",
+    "build": "node scripts/build-web.mjs",
+    "serve": "node scripts/serve.mjs"
+  },
+  "dependencies": {
+    "@meteora-ag/dynamic-bonding-curve-sdk": "1.5.13",
+    "@solana/web3.js": "^1.98.0",
+    "bn.js": "^5.2.1",
+    "bs58": "^4.0.1",
+    "decimal.js": "^10.5.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10"
+  }
+}

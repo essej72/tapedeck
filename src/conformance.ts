@@ -1,0 +1,152 @@
+// Conformance run: is the engine the chain, across every way a DBC config can charge a fee?
+//
+//   node src/conformance.ts pick [perKind]     # choose pools spread over fee modes, quote tokens and activation types
+//   node src/conformance.ts busy [n]           # add the n busiest pools of the last day, whatever their config
+//   node src/conformance.ts run [kind]         # fetch each pool's history, replay it, record the verdict
+//                                              # (optionally only kinds containing the given text)
+//   node src/conformance.ts report             # totals by kind of config; writes web/data/conformance.json
+//
+// A "kind" is the combination of settings that changes the swap path: base fee mode, dynamic fee, where the fee is
+// collected, slot or timestamp activation, the first-swap minimum fee, quote token.
+
+import { mkdirSync, writeFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
+import bs58 from "bs58";
+import { readConfig } from "./census/fields.ts";
+import { CENSUS_DB } from "./census/pull.ts";
+import { openTapes, TX_RPC_URL } from "./flows/chain.ts";
+import { RPC_URL } from "./rpc.ts";
+import { buildFixture, replayFixture } from "./validate.ts";
+
+const SOL = "So11111111111111111111111111111111111111112";
+const FEE_MODE = ["linear scheduler", "exponential scheduler", "rate limiter"];
+const SCHEMA = `CREATE TABLE IF NOT EXISTS conformance (pool TEXT PRIMARY KEY, kind TEXT, recent INTEGER, state TEXT, swaps INTEGER, mismatches INTEGER,
+  final_checked INTEGER, note TEXT, checked REAL)`;
+
+function kindOf(data: Buffer): string {
+  const f = readConfig(data);
+  const fee = f.baseFeeMode === 2 ? "rate limiter" : f.startFeeBps === f.endFeeBps || f.feeDuration === 0 ? "flat fee" : FEE_MODE[f.baseFeeMode];
+  return [fee, f.dynamicFee ? "dynamic fee" : "", f.collectFeeMode ? "fee in output token" : "fee in quote", f.activationType ? "by timestamp" : "by slot", f.firstSwapMinFee ? "min-fee first swap" : "", f.quoteMint === SOL ? "SOL" : "other quote"]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function pick(perKind: number): void {
+  const census = new DatabaseSync(CENSUS_DB, { readOnly: true });
+  const db = openTapes();
+  db.exec(SCHEMA);
+  const kinds = new Map<string, string>();
+  for (const r of census.prepare("SELECT address, data FROM configs").iterate()) kinds.set(Buffer.from(r.address as Uint8Array).toString("hex"), kindOf(Buffer.from(r.data as Uint8Array)));
+  const now = Date.now() / 1000;
+  const slotNow = (census.prepare("SELECT MAX(activation_point) s FROM pools WHERE activation_point < 1e9").get() as { s: number }).s;
+  // Pools that traded for real: fees collected, and not finished in the launch second.
+  const chosen = new Map<string, { pool: string; recent: number; weight: number }[]>();
+  for (const p of census.prepare("SELECT address, config, activation_point ap, total_trading_quote_fee qf, total_trading_base_fee bf, migration_progress mp, finish_curve_timestamp ft FROM pools WHERE total_trading_quote_fee > 0 OR total_trading_base_fee > 0").iterate()) {
+    const kind = kinds.get(Buffer.from(p.config as Uint8Array).toString("hex"));
+    if (!kind) continue;
+    const ap = p.ap as number;
+    const recent = ap > 1e9 ? (now - ap < 20 * 3600 ? 1 : 0) : slotNow - ap < 300_000 ? 1 : 0;
+    const list = chosen.get(kind) ?? [];
+    chosen.set(kind, list);
+    // Reservoir: recent pools first (a keyless endpoint with short history can serve them), random within that.
+    const weight = recent * 10 + Math.random();
+    if (list.length < perKind) list.push({ pool: bs58.encode(p.address as Uint8Array), recent, weight });
+    else {
+      let lo = 0;
+      for (let i = 1; i < list.length; i++) if (list[i].weight < list[lo].weight) lo = i;
+      if (weight > list[lo].weight) list[lo] = { pool: bs58.encode(p.address as Uint8Array), recent, weight };
+    }
+  }
+  const put = db.prepare("INSERT OR IGNORE INTO conformance (pool, kind, recent, state) VALUES (?, ?, ?, 'todo')");
+  let n = 0;
+  for (const [kind, list] of chosen) for (const c of list) n += Number(put.run(c.pool, kind, c.recent).changes);
+  console.log(`${chosen.size} kinds of config, ${n} pools added`);
+}
+
+/** The busiest pools of the last day: where most of the swaps are. */
+function busy(n: number): void {
+  const census = new DatabaseSync(CENSUS_DB, { readOnly: true });
+  const db = openTapes();
+  db.exec(SCHEMA);
+  const kinds = new Map<string, string>();
+  for (const r of census.prepare("SELECT address, data FROM configs").iterate()) kinds.set(Buffer.from(r.address as Uint8Array).toString("hex"), kindOf(Buffer.from(r.data as Uint8Array)));
+  const now = Date.now() / 1000;
+  const slotNow = (census.prepare("SELECT MAX(activation_point) s FROM pools WHERE activation_point < 1e9").get() as { s: number }).s;
+  const put = db.prepare("INSERT OR IGNORE INTO conformance (pool, kind, recent, state) VALUES (?, ?, 1, 'todo')");
+  let added = 0;
+  for (const p of census.prepare("SELECT address, config, activation_point ap FROM pools WHERE total_trading_quote_fee + total_trading_base_fee > 0 ORDER BY total_trading_quote_fee DESC").iterate()) {
+    const ap = p.ap as number;
+    if (!(ap > 1e9 ? now - ap < 18 * 3600 : slotNow - ap < 280_000)) continue;
+    const kind = kinds.get(Buffer.from(p.config as Uint8Array).toString("hex"));
+    if (!kind) continue;
+    added += Number(put.run(bs58.encode(p.address as Uint8Array), kind).changes);
+    if (added >= n) break;
+  }
+  console.log(`${added} busy recent pools added`);
+}
+
+async function run(only = ""): Promise<void> {
+  const db = openTapes();
+  db.exec(SCHEMA);
+  const done = db.prepare("UPDATE conformance SET state=?, swaps=?, mismatches=?, final_checked=?, note=?, checked=? WHERE pool=?");
+  for (;;) {
+    // recent pools first (the fast endpoint has them); within that, one pool per kind before a second of any
+    const job = db.prepare("SELECT c.pool, c.kind, c.recent FROM conformance c WHERE c.state='todo' AND c.kind LIKE ? ORDER BY c.recent DESC, (SELECT COUNT(*) FROM conformance d WHERE d.kind = c.kind AND d.state <> 'todo') LIMIT 1").get(`%${only}%`);
+    if (!job) break;
+    const pool = job.pool as string;
+    let state = "done";
+    let v = { swaps: 0, mismatches: [] as string[], finalChecked: false, skipped: undefined as string | undefined };
+    try {
+      // A recent pool's whole history is on the fast endpoint; an old one needs the archive.
+      // The archive endpoint allows about 40 requests per 10 s per method; stay under it.
+      const archive = { url: RPC_URL, maxTx: 3000, gapMs: 320 };
+      let f = await buildFixture(pool, job.recent ? { url: TX_RPC_URL, maxTx: 3000 } : archive);
+      v = { ...v, ...replayFixture(f) };
+      if (v.skipped && job.recent) {
+        f = await buildFixture(pool, { ...archive, refetch: true });
+        v = { ...v, skipped: undefined, ...replayFixture(f) };
+      }
+      if (v.skipped) state = "skipped";
+    } catch (e) {
+      state = "error";
+      v.skipped = e instanceof Error ? e.message.slice(0, 200) : String(e);
+    }
+    done.run(state, v.swaps, v.mismatches.length, v.finalChecked ? 1 : 0, v.skipped ?? v.mismatches.slice(0, 3).join(" | "), Date.now() / 1000, pool);
+    console.log(`${new Date().toISOString().slice(11, 19)} ${pool.slice(0, 8)} [${job.kind}] ${state} ${v.swaps} swaps ${v.mismatches.length} mismatches ${v.skipped ?? ""}`);
+  }
+}
+
+function report(): void {
+  const db = openTapes();
+  // Pools verified while recording tapes count too (flows/dbc.ts); a pool is counted once.
+  const rows = new Map<string, { kind: string; pools: number; swaps: number; mismatches: number; bad: number; finals: number }>();
+  const add = (kind: string, swaps: number, mismatches: number, final: number) => {
+    const r = rows.get(kind) ?? { kind, pools: 0, swaps: 0, mismatches: 0, bad: 0, finals: 0 };
+    rows.set(kind, { kind, pools: r.pools + 1, swaps: r.swaps + swaps, mismatches: r.mismatches + mismatches, bad: r.bad + (mismatches > 0 ? 1 : 0), finals: r.finals + final });
+  };
+  const seen = new Set<string>();
+  for (const r of db.prepare("SELECT pool, kind, swaps, mismatches, final_checked FROM conformance WHERE state='done' AND swaps > 0").all()) {
+    seen.add(r.pool as string);
+    add(r.kind as string, r.swaps as number, r.mismatches as number, r.final_checked as number);
+  }
+  if (db.prepare("SELECT name FROM sqlite_master WHERE name='dbc_tape'").get()) {
+    for (const r of db.prepare("SELECT pool, swaps, mismatches, fixture FROM dbc_tape WHERE state IN ('ok','mismatch') AND swaps > 0").all()) {
+      if (seen.has(r.pool as string)) continue;
+      const fixture = r.fixture ? (JSON.parse(r.fixture as string) as { configData: string }) : null;
+      add(fixture ? kindOf(Buffer.from(fixture.configData, "base64")) : "unknown", r.swaps as number, r.mismatches as number, 0);
+    }
+  }
+  const kinds = [...rows.values()].sort((a, b) => b.swaps - a.swaps);
+  const total = kinds.reduce((t, r) => ({ pools: t.pools + r.pools, swaps: t.swaps + r.swaps, mismatches: t.mismatches + r.mismatches, finals: t.finals + r.finals }), { pools: 0, swaps: 0, mismatches: 0, finals: 0 });
+  for (const r of kinds) console.log(`${String(r.pools).padStart(4)} pools ${String(r.swaps).padStart(8)} swaps ${String(r.mismatches).padStart(5)} mismatches (${r.bad} pools)  ${r.kind}`);
+  console.log(total, db.prepare("SELECT state, COUNT(*) n FROM conformance GROUP BY state").all());
+  mkdirSync(new URL("../web/data/", import.meta.url), { recursive: true });
+  writeFileSync(new URL("../web/data/conformance.json", import.meta.url), JSON.stringify({ generatedAt: new Date().toISOString(), total, kinds }));
+}
+
+const [cmd, arg] = process.argv.slice(2);
+if (cmd === "pick") pick(Number(arg) || 6);
+else if (cmd === "busy") busy(Number(arg) || 200);
+else if (cmd === "run") await run(arg);
+else if (cmd === "report") report();
+else console.log("usage: node src/conformance.ts pick [perKind] | busy [n] | run | report");
