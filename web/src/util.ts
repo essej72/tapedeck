@@ -1,6 +1,7 @@
 // Small shared pieces for the web deck: DOM helpers, number formats, data loading, canvas set-up.
 
 import type { Order, Tape } from "../../src/engine/replay.ts";
+import type { PackedTape } from "../../src/flows/pack.ts";
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -30,22 +31,7 @@ export const clock = (t: number): string => {
 };
 export const span = (seconds: number): string => (seconds < 90 ? `${Math.round(seconds)} s` : seconds < 5400 ? `${Math.round(seconds / 60)} min` : `${(seconds / 3600).toFixed(1)} h`);
 
-export type PackedTape = {
-  id: string;
-  source: string;
-  kind: string;
-  creator: number;
-  wallets: number;
-  graduated: boolean;
-  seconds: number;
-  launchSlotBuys: number;
-  curveBuys: number;
-  fit: [number, number];
-  orders: [number, number, number][];
-  createBuy: number;
-  config?: { address: string; bytes: string };
-  exactSwaps?: number;
-};
+export type { PackedTape } from "../../src/flows/pack.ts";
 export type Library = {
   slotSeconds: number;
   pumpfun: { considered: number; passed: number; tooShort: number; misfit: number; recordedFrom: string; recordedTo: string; kinds: Record<string, number> };

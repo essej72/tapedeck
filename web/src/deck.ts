@@ -6,6 +6,7 @@ import { walkAway } from "../../src/engine/buyout.ts";
 import { configFromBytes } from "../../src/engine/bytes.ts";
 import { design, flatFee, inventConfig, PUMP_CURVE, type DesignSpec } from "../../src/engine/design.ts";
 import { COHORTS, cohortOf, Session, SLOT_SECONDS, type FillRecord, type Tape } from "../../src/engine/replay.ts";
+import { loadPoolFromChain } from "./loadpool.ts";
 import { $, bytesOf, clock, css, el, fit, int, pct, signed, sol, span, unpack, type PackedTape } from "./util.ts";
 
 export type Preset = { hash: string; address: string; name: string | null; suffix: string | null; fee: string; threshold: number; pools: number; completed: number; bytes: string };
@@ -461,7 +462,7 @@ export function mountDeck(lib: { tapes: PackedTape[]; slotSeconds: number }, pre
     $("counter-orders").textContent = `order ${int(A.live.cursor)} / ${int(tape.orders.length)}`;
     $<HTMLInputElement>("scrub").value = String(Math.round(u * 1000));
     const hide = blind;
-    const proof = packed.config ? `all ${int(packed.exactSwaps ?? 0)} swaps replay against the chain to the lamport` : `replay matches recorded fills within ${pct(Math.max(packed.fit[1], 0.0001), 2)}`;
+    const proof = packed.proof ?? (packed.config ? `all ${int(packed.exactSwaps ?? 0)} swaps replay against the chain to the lamport` : `replay matches recorded fills within ${pct(Math.max(packed.fit[1], 0.0001), 2)}`);
     $("tape-title").replaceChildren(el("b", {}, hide ? "unlabelled tape" : `${packed.id.slice(0, 6)}…`), hide ? "" : ` · ${packed.source} · ${packed.kind} · ${int(packed.wallets)} traders · ${proof}`);
     $("legend").replaceChildren(el("span", { class: "la" }, `Side A: as recorded (${packed.config ? "the pool's own config" : "pump.fun's curve"})`), el("span", { class: "lb" }, `Side B: ${loaded?.label ?? "your config"}`), ...(mine.length ? [el("span", { class: "ly" }, "you")] : []), el("em", {}, "dots: filled buys, hollow sells, red for the creator and launch-slot wallets"));
   };
@@ -641,6 +642,36 @@ export function mountDeck(lib: { tapes: PackedTape[]; slotSeconds: number }, pre
       applySideB();
     } catch (e) {
       status.textContent = `Could not load it: ${e instanceof Error ? e.message : String(e)}. Check the address is a DBC PoolConfig account.`;
+    }
+  };
+  $("btn-pool").onclick = async () => {
+    const status = $("pool-status");
+    const button = $<HTMLButtonElement>("btn-pool");
+    const address = $<HTMLInputElement>("pool-address").value.trim();
+    if (!address) {
+      status.textContent = "Paste a DBC pool address first.";
+      return;
+    }
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) {
+      status.textContent = "That is not a Solana address. Paste the pool's address: 32 to 44 letters and digits.";
+      return;
+    }
+    button.disabled = true;
+    try {
+      const loaded = await loadPoolFromChain(address, $<HTMLInputElement>("pool-rpc").value.trim(), (text) => (status.textContent = text));
+      status.textContent = loaded.summary;
+      if (loaded.tape) {
+        const at = lib.tapes.findIndex((t) => t.id === loaded.tape!.id);
+        if (at >= 0) lib.tapes.splice(at, 1);
+        lib.tapes.unshift(loaded.tape);
+        filter = null;
+        play(false);
+        loadTape(loaded.tape, false);
+      }
+    } catch (e) {
+      status.textContent = `Could not load it: ${e instanceof Error ? e.message : String(e)}.`;
+    } finally {
+      button.disabled = false;
     }
   };
   window.addEventListener("resize", draw);

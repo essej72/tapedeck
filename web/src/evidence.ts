@@ -190,7 +190,7 @@ export const METHOD = `
 <h2>Exact</h2>
 <ul>
 <li><b>Curve trades.</b> Prices and fees come from the quote functions of Meteora's own SDK. Around them the engine does what the on-chain program does and the SDK leaves out: refresh the volatility tracker before the quote, apply the result to reserves and fee buckets, update the tracker after, complete the curve at the threshold. The conformance run on the Evidence page holds it to the chain.</li>
-<li><b>Config decoding.</b> Field offsets are derived from the IDL that ships with the SDK. The reader used in the browser is tested against the SDK's Anchor coder on real accounts.</li>
+<li><b>Decoding.</b> Account offsets and event layouts are derived from the IDL that ships with the SDK. The readers used in the browser are tested against the SDK's Anchor coder on real accounts and real events.</li>
 <li><b>Designed configs.</b> Side B's settings go through the SDK's curve builders and validators, so a config that plays here is one <code>create_config</code> would accept. The rate limiter is not offered because the SDK no longer builds it.</li>
 </ul>
 <h2>Modelled</h2>
@@ -205,7 +205,7 @@ export const METHOD = `
 <h2>Data</h2>
 <ul>
 <li><b>Census:</b> <code>getProgramAccounts</code> on the DBC program through the public mainnet RPC, no key, sliced by one byte so each response stays small.</li>
-<li><b>Pool histories:</b> <code>getSignaturesForAddress</code> and <code>getTransaction</code>, events decoded with the SDK's coder.</li>
+<li><b>Pool histories:</b> <code>getSignaturesForAddress</code> and <code>getTransaction</code>, events decoded with the SDK's coder. A pool you paste into the deck is read the same way from your browser, through keyless public endpoints or one you type in; nothing is sent anywhere else.</li>
 <li><b>Tapes:</b> pump.fun's public trade feed, read only, about 18 requests a minute. Launches seen by a recorder running since 10 October 2026; a graduate is read within minutes of graduating.</li>
 </ul>
 <h2>Limits</h2>

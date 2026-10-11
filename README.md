@@ -6,6 +6,7 @@ A **tape** is a real launch, order by order: who bought, who sold, when, how muc
 
 - **Side A** plays the launch on the curve it happened on.
 - **Side B** flies the same orders through any config: one you design (through the SDK's own curve builders) or any config on mainnet, loaded by address. Every buyer spends the same amount at the same moment, every seller sells the same share of what they hold by then. A ledger shows who paid and who collected under each.
+- **Any pool.** Paste a DBC pool address and the deck fetches its transactions in your browser, replays every swap against the events the program emitted, tells you whether they match, and puts the pool on the deck with its own config as Side A.
 - **REC** hands you a paper wallet. Your orders go onto the tape at the moment you press, and the rest of the launch trades against the price you left behind.
 - A config you like leaves as a file for Meteora's [Invent CLI](https://github.com/MeteoraAg/meteora-invent).
 
@@ -21,9 +22,9 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 - **Census:** 1,768,464 pools under 543,738 configs, read from program accounts on 2026-10-10.
 - **Where faking a graduation costs under 2% of the raise:** 84% of 1,131,326 pools completed their curve.
 - **Where it costs 10% or more:** 2.7% of 438,317 pools did.
-- **pump.fun, recorded 2026-10-10 to 2026-10-11:** 77 of 119 graduations that passed the check were one party buying the curve in the launch slot.
-- **Engine against chain:** 107,341 real swaps replayed across 341 pools and 50 kinds of config, 0 mismatches.
-- **Shelf:** 73 tapes: 13 DBC pools read from the chain and 60 pump.fun launches, picked from 530 that passed the fit check. Of 1,132 pump.fun launches recorded, 542 had under 12 orders and 60 failed the check.
+- **pump.fun, recorded 2026-10-10 to 2026-10-11:** 78 of 121 graduations that passed the check were one party buying the curve in the launch slot.
+- **Engine against chain:** 112,043 real swaps replayed across 348 pools and 50 kinds of config, 0 mismatches.
+- **Shelf:** 84 tapes: 24 DBC pools read from the chain and 60 pump.fun launches, picked from 561 that passed the fit check. Of 1,206 pump.fun launches recorded, 584 had under 12 orders and 61 failed the check.
 <!-- figures:end -->
 
 ![Completion rate against the cost of faking a graduation, one bubble per design](web/img/evidence.jpg)
@@ -39,7 +40,8 @@ Then it is held to the chain:
 - `node src/validate.ts <pool>` fetches a pool's whole history, replays every swap from the pool's own events and compares each field of each result with what the program emitted, to the lamport, then the final state with the live account.
 - `node src/conformance.ts pick && node src/conformance.ts run` does that for pools spread over every combination of fee mode, fee token, activation type, first-swap setting and quote token in use on mainnet.
 - A pump.fun tape goes on the shelf only if a DBC config equal to pump.fun's curve returns the recorded number of tokens on every curve buy.
-- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, three pump.fun tapes.
+- The deck does the same check live, in the browser, for any pool you paste. The browser build reads accounts and events from the IDL alone (no Anchor); it is tested against the SDK's Anchor coder on 160 real config accounts and 470 real events.
+- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes.
 
 ## Run it
 
@@ -85,12 +87,13 @@ npm run build
 | `src/engine/replay.ts` | A session: fly a tape through a config, on the curve and then in the migrated pool; take orders that are not on the tape |
 | `src/engine/buyout.ts` | The cost of faking a graduation under a config |
 | `src/engine/design.ts` | A design as SDK builder input, as stored config, and as an Invent CLI file |
-| `src/engine/bytes.ts`, `src/layout.ts` | Config accounts read by IDL-derived offsets, for the browser |
+| `src/engine/bytes.ts`, `src/events.ts`, `src/layout.ts` | Accounts and events read from the IDL alone, for the browser |
+| `src/engine/verify.ts` | Replay a pool's history against its own events and report every difference |
 | `src/engine/amm.ts` | The migrated pool: exact migration amounts, constant-product trading |
 | `src/census/` | The whole-chain census and the design table |
-| `src/flows/chain.ts`, `dbc.ts` | Pool histories from the chain, verified and turned into tapes |
-| `src/flows/pumpfun.ts`, `tapes.ts`, `library.ts` | pump.fun tapes: collect, turn trades into orders, check, pack |
-| `src/validate.ts`, `src/conformance.ts` | Engine against chain |
+| `src/flows/history.ts`, `chain.ts`, `chaintape.ts`, `dbc.ts` | Pool histories from the chain, verified and turned into tapes |
+| `src/flows/pumpfun.ts`, `tapes.ts`, `pack.ts`, `library.ts` | pump.fun tapes: collect, turn trades into orders, check, pack |
+| `src/validate.ts`, `src/conformance.ts` | Engine against chain, from the command line and across every kind of config |
 | `web/` | The deck, the evidence page, the pitch page |
 | `test/` | Offline tests on frozen mainnet data |
 

@@ -1,6 +1,5 @@
-// The complete on-chain history of a DBC pool: every transaction that touched it, with the program's own events
-// (pool created, swap, curve complete) decoded. This is the ground truth the engine is checked against, and the
-// native source of order tapes.
+// The collectors' store of pool histories: fetch a DBC pool's whole on-chain history (history.ts) with the
+// program's events decoded by the SDK's own Anchor coder, and keep it in data/tapes.db.
 //
 //   node src/flows/chain.ts <pool address> [...more]      # fetch and store
 //
@@ -8,27 +7,15 @@
 
 import { mkdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import bs58 from "bs58";
 import { decodeEventIx } from "../engine/codec.ts";
-import { PROGRAM_ID } from "../layout.ts";
-import { Rpc } from "../rpc.ts";
+import { fetchHistory, type ChainTx, type EventDecoder } from "./history.ts";
+
+export type { ChainEvent, ChainTx } from "./history.ts";
 
 export const TX_RPC_URL = process.env.TX_RPC_URL ?? "https://solana-rpc.publicnode.com";
 const DATA_DIR = new URL("../../data/", import.meta.url);
 mkdirSync(DATA_DIR, { recursive: true });
 export const TAPES_DB = new URL("tapes.db", DATA_DIR);
-
-export type ChainEvent = { name: string; data: Record<string, unknown> };
-export type ChainTx = { sig: string; slot: number; blockTime: number; payer: string; events: ChainEvent[] };
-
-type SigInfo = { signature: string; slot: number; blockTime: number | null; err: unknown };
-type RawTx = {
-  slot: number;
-  blockTime: number | null;
-  transaction: { message: { accountKeys: string[]; instructions: RawIx[] } };
-  meta: { err: unknown; innerInstructions: { index: number; instructions: RawIx[] }[] | null; loadedAddresses?: { writable: string[]; readonly: string[] } } | null;
-};
-type RawIx = { programIdIndex: number; data: string };
 
 /** BN, PublicKey and nested structs -> plain JSON (integers as decimal strings, keys as base58). */
 function plain(v: unknown): unknown {
@@ -40,32 +27,11 @@ function plain(v: unknown): unknown {
   return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, plain(x)]));
 }
 
-export async function signaturesOf(rpc: Rpc, address: string, max = 20_000): Promise<SigInfo[]> {
-  const out: SigInfo[] = [];
-  let before: string | undefined;
-  while (out.length < max) {
-    const page = await rpc.call<SigInfo[]>("getSignaturesForAddress", [address, { limit: 1000, ...(before ? { before } : {}) }]);
-    out.push(...page);
-    if (page.length < 1000) break;
-    before = page[page.length - 1].signature;
-  }
-  return out.reverse(); // oldest first, block order preserved inside a slot
-}
-
-export async function transactionOf(rpc: Rpc, sig: string): Promise<ChainTx | null> {
-  const tx = await rpc.call<RawTx | null>("getTransaction", [sig, { encoding: "json", maxSupportedTransactionVersion: 1, commitment: "confirmed" }]);
-  if (!tx?.meta || tx.meta.err) return null;
-  const keys = [...tx.transaction.message.accountKeys, ...(tx.meta.loadedAddresses?.writable ?? []), ...(tx.meta.loadedAddresses?.readonly ?? [])];
-  const events: ChainEvent[] = [];
-  for (const group of tx.meta.innerInstructions ?? []) {
-    for (const ix of group.instructions) {
-      if (keys[ix.programIdIndex] !== PROGRAM_ID) continue;
-      const ev = decodeEventIx(Buffer.from(bs58.decode(ix.data)));
-      if (ev) events.push({ name: ev.name, data: plain(ev.data) as Record<string, unknown> });
-    }
-  }
-  return { sig, slot: tx.slot, blockTime: tx.blockTime ?? 0, payer: keys[0], events };
-}
+/** Events through the SDK's Anchor coder: the reference decoder. */
+export const anchorDecode: EventDecoder = (data) => {
+  const ev = decodeEventIx(Buffer.from(data));
+  return ev ? { name: ev.name, data: plain(ev.data) as Record<string, unknown> } : null;
+};
 
 export function openTapes(): DatabaseSync {
   const db = new DatabaseSync(TAPES_DB);
@@ -79,36 +45,25 @@ export function openTapes(): DatabaseSync {
 }
 
 /**
- * Fetch a pool's history from its creation, oldest transaction first, `lanes` requests in flight at a time, and
- * store it. A long history is cut after `maxTx` transactions; chain_pool.complete says whether it was.
+ * Fetch a pool's history from its creation, oldest transaction first, and store it. A long history is cut after
+ * `maxTx` transactions; chain_pool.complete says whether it was. `keepRaw` also stores each event's raw bytes.
  */
-export async function fetchPool(db: DatabaseSync, pool: string, opts: { lanes?: number; maxTx?: number; gapMs?: number; url?: string } = {}): Promise<ChainTx[]> {
-  const { lanes = 4, maxTx = 6000, gapMs = 120, url = TX_RPC_URL } = opts;
-  const sigs = (await signaturesOf(new Rpc(url, gapMs), pool, 80_000)).filter((s) => !s.err);
-  const complete = sigs.length <= maxTx;
-  const want = sigs.slice(0, maxTx);
-  const txs: (ChainTx | null)[] = new Array(want.length).fill(null);
-  let next = 0;
-  const lane = async () => {
-    const mine = new Rpc(url, gapMs * lanes);
-    while (next < want.length) {
-      const i = next++;
-      txs[i] = await transactionOf(mine, want[i].signature);
-    }
-  };
-  await Promise.all(Array.from({ length: lanes }, lane));
+export async function fetchPool(db: DatabaseSync, pool: string, opts: { lanes?: number; maxTx?: number; gapMs?: number; url?: string; keepRaw?: boolean } = {}): Promise<ChainTx[]> {
+  const { txs, signatures, complete } = await fetchHistory(pool, {
+    url: opts.url ?? TX_RPC_URL,
+    decode: anchorDecode,
+    lanes: opts.lanes,
+    gapMs: opts.gapMs,
+    maxTx: opts.maxTx,
+    withBytes: opts.keepRaw ? (event, bytes) => (event.raw = Buffer.from(bytes).toString("base64")) : undefined,
+  });
   const insert = db.prepare("INSERT OR REPLACE INTO chain_tx VALUES (?,?,?,?,?,?,?)");
   db.exec("BEGIN");
   db.prepare("DELETE FROM chain_tx WHERE pool = ?").run(pool);
-  const kept: ChainTx[] = [];
-  for (const tx of txs) {
-    if (!tx || tx.events.length === 0) continue;
-    insert.run(pool, kept.length, tx.sig, tx.slot, tx.blockTime, tx.payer, JSON.stringify(tx.events));
-    kept.push(tx);
-  }
-  db.prepare("INSERT OR REPLACE INTO chain_pool VALUES (?,?,?,?,?)").run(pool, sigs.length, kept.length, complete ? 1 : 0, Date.now() / 1000);
+  txs.forEach((tx, seq) => insert.run(pool, seq, tx.sig, tx.slot, tx.blockTime, tx.payer, JSON.stringify(tx.events)));
+  db.prepare("INSERT OR REPLACE INTO chain_pool VALUES (?,?,?,?,?)").run(pool, signatures, txs.length, complete ? 1 : 0, Date.now() / 1000);
   db.exec("COMMIT");
-  return kept;
+  return txs;
 }
 
 export const isComplete = (db: DatabaseSync, pool: string): boolean => db.prepare("SELECT complete FROM chain_pool WHERE pool = ?").get(pool)?.complete === 1;

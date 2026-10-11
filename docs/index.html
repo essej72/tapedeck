@@ -33,6 +33,14 @@
       <div class="chips" id="kind-chips" role="group" aria-label="Filter tapes by kind"></div>
       <ol class="spines" id="spines"></ol>
       <button class="key wide" id="btn-random" type="button">Load one at random, unlabelled</button>
+      <details class="load" id="pool-loader">
+        <summary class="engraved">Load any DBC pool from the chain</summary>
+        <p class="muted small">Paste a pool address. Its transactions are fetched here in your browser, every swap is replayed against the events the program emitted, and the pool goes on the deck with its own config as Side A.</p>
+        <label class="field stack"><span>Pool address</span><input id="pool-address" type="text" spellcheck="false" autocomplete="off" placeholder="a DBC VirtualPool account"></label>
+        <label class="field stack"><span>RPC endpoint (optional)</span><input id="pool-rpc" type="text" spellcheck="false" autocomplete="off" placeholder="empty: public endpoints"></label>
+        <button class="key wide" id="btn-pool" type="button">Fetch, verify and load</button>
+        <p id="pool-status" class="muted small" role="status"></p>
+      </details>
     </aside>
 
     <div class="well">

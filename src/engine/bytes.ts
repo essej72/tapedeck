@@ -7,9 +7,47 @@
 import type { PoolConfig } from "@meteora-ag/dynamic-bonding-curve-sdk";
 import BN from "bn.js";
 import bs58 from "bs58";
-import { CONFIG, off } from "../layout.ts";
+import { CONFIG, off, POOL } from "../layout.ts";
 
 const o = (path: string) => off(CONFIG, path);
+
+export type LoadedPool = {
+  config: string;
+  creator: string;
+  baseMint: string;
+  sqrtPrice: BN;
+  quoteReserve: BN;
+  activationPoint: BN;
+  isMigrated: boolean;
+  migrationProgress: number;
+  totalTradingQuoteFee: BN;
+  totalProtocolQuoteFee: BN;
+  totalTradingBaseFee: BN;
+  totalProtocolBaseFee: BN;
+};
+
+/** The parts of a VirtualPool account a replay is checked against. */
+export function poolFromBytes(data: Uint8Array): LoadedPool {
+  const d = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  if (d.length < POOL.size) throw new Error(`a VirtualPool account is ${POOL.size} bytes; got ${d.length}`);
+  const at = (path: string) => off(POOL, `pool_state.${path}`);
+  const key = (path: string) => bs58.encode(d.subarray(at(path), at(path) + 32));
+  const u64 = (path: string) => new BN(d.subarray(at(path), at(path) + 8), "le");
+  return {
+    config: key("config"),
+    creator: key("creator"),
+    baseMint: key("base_mint"),
+    sqrtPrice: new BN(d.subarray(at("sqrt_price"), at("sqrt_price") + 16), "le"),
+    quoteReserve: u64("quote_reserve"),
+    activationPoint: u64("activation_point"),
+    isMigrated: d[at("is_migrated")] === 1,
+    migrationProgress: d[at("migration_progress")],
+    totalTradingQuoteFee: u64("metrics.total_trading_quote_fee"),
+    totalProtocolQuoteFee: u64("metrics.total_protocol_quote_fee"),
+    totalTradingBaseFee: u64("metrics.total_trading_base_fee"),
+    totalProtocolBaseFee: u64("metrics.total_protocol_base_fee"),
+  };
+}
 
 export type LoadedConfig = PoolConfig & { quoteMintAddress: string; feeClaimerAddress: string };
 

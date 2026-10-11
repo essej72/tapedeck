@@ -192,6 +192,8 @@ table { border-collapse: collapse; width: 100%; }
 .export, .load { display: flex; flex-direction: column; gap: 6px; }
 .load summary { cursor: pointer; padding: 6px 0; }
 .load[open] { gap: 8px; }
+.load p { margin: 0; }
+.shelf .load { border-top: 1px solid var(--rule); padding-top: 4px; }
 
 /* ---- evidence and method ---- */
 .prose { max-width: 76ch; }
