@@ -62,7 +62,8 @@ Run on 11 October 2026:
 | Math | Swaps replayed | Mismatches |
 |---|---|---|
 | SDK 1.5.13 (npm) | 186,352 | 0 |
-| SDK 2.0 branch: [PR #123](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/123) at `bdfe680`, #125 at `706bd11`, #126 at `ffde81d` | 186,352 each | 0 |
+| SDK 2.0 branch: [PR #123](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/123) at `f960aff` (11 October, after the four-PR stack was folded into it) | 186,352 | 0 |
+| The same branch as first posted: #123 at `bdfe680`, #125 at `706bd11`, #126 at `ffde81d` | 186,352 each | 0 |
 | The 2.0 math with one lamport added to every exact-in output (a check that the check works) | stops early | flagged in 602 of 666 pools |
 
 What the corpus covers: 89,651 buys and 96,701 sells; 172,304 exact-in swaps, 14,047 partial fills (39 of them cut short at the migration price) and a single exact-out swap; 9,028 swaps with a referral; 312 swaps inside the pool-creation transaction; 183 curve completions; 3,022 swaps from before August 2025, recorded with the older event; rate limiters, linear and exponential schedulers, the dynamic fee, fees in quote and in the output token, slot and timestamp activation. What it leaves out: seven pools traded under older builds of the program, which today's math should not reproduce (they are in `test/fixtures/old-program/` and under "Found on the way"). What it barely covers: exact-out swaps, which almost nobody makes (next section), and transfer-fee or transfer-hook tokens, not at all.
@@ -79,7 +80,7 @@ Run on 2026-10-11: 521 open pools (334 quoted in SOL, 187 in USDC), 84 kinds of 
 | Math | Simulated transactions | Swaps the program answered | Refusals | Disagreements |
 |---|---|---|---|---|
 | SDK 1.5.13 (npm) | 3,735 | 5,169, of them 3,969 exact-out | 555 | 0 |
-| SDK 2.0 branch at `bdfe680`, `706bd11` and `ffde81d` | the same 3,735 | the same | the same | 0 at each |
+| SDK 2.0 branch at `f960aff`, and earlier at `bdfe680`, `706bd11` and `ffde81d` | the same 3,735 | the same | the same | 0 at each |
 | An exact-out quote one lamport too high (a check that the check works) | 2,378 with an exact-out swap | | | flagged in 2,378 |
 
 398 of the pools were asked nine things: a control (an exact-in buy and sell, which history already proves, so a mismatch there would be the harness); exact-out buys of 0.2%, 15%, 60% and 85% of what is left on the curve, each followed by an exact-out sell, half of them with a referral (1,590 swaps); one token unit; one unit of the quote token; the last token on the curve; and one token more than the curve holds. A tenth question was added later and put to 157 pools: an exact-in buy of one unit of quote more than it takes to reach the migration price. Today's program refuses it whole in 151 of them and lets rounding absorb it in the other 6, and the engine gives the same answer each time. Older builds let such a buy run on past the migration price (see "Found on the way").
@@ -185,7 +186,7 @@ npm run build
 ## Found on the way
 
 <!-- found:start -->
-- **How far a known SDK bug reaches.** In SDK 1.5.13, `StateService.getPoolConfigsByOwner(owner)` filters `PoolConfig` accounts at byte offset 72, which is `leftover_receiver`; `fee_claimer` is at offset 40. I ran into it while indexing; the SDK team had opened a fix the same day ([PR #124](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/124)). What the census adds is the size of it: on 2026-10-10, 200,278 of 543,738 configs on mainnet (37%) had a fee claimer different from their leftover receiver, and 1.5.13 does not return those for their fee claimer. Reproduced on mainnet: fee claimer `7AdYv1gs9xhmg87Xyh84ryHrfht4khVvBLSbDqkMTwrm` owns three configs and the call returns none.
+- **How far a known SDK bug reaches.** In SDK 1.5.13, `StateService.getPoolConfigsByOwner(owner)` filters `PoolConfig` accounts at byte offset 72, which is `leftover_receiver`; `fee_claimer` is at offset 40. I ran into it while indexing; the SDK team had opened a fix the same day ([PR #124](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/124), since folded into [#123](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/123)). What the census adds is the size of it: on 2026-10-10, 200,278 of 543,738 configs on mainnet (37%) had a fee claimer different from their leftover receiver, and 1.5.13 does not return those for their fee claimer. Reproduced on mainnet: fee claimer `7AdYv1gs9xhmg87Xyh84ryHrfht4khVvBLSbDqkMTwrm` owns three configs and the call returns none.
 - **Slot-based fee schedules run faster than the Invent config says.** Its comments size them at 0.4 s a slot. Block times sampled 100,000 slots apart on 2026-10-10 give 0.219 s a slot, so a schedule written as "60 seconds" in slots lasts about 33. Designs made here count in seconds (timestamp activation).
 - **Old histories remember old programs.** A longer run over 673 pools first turned up 13 that did not replay. None was a fault in today's SDK math; they came down to three things, and the replay now deals with each.
   - *An older swap event.* Before program release 0.1.6 (19 August 2025) a swap emitted only `EvtSwap`. The replay used to skip those, so every later swap drifted. It now reads them: 3,022 swaps recorded that way replay to the lamport.

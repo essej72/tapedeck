@@ -104,7 +104,7 @@
         <li><b>Launchpad builders:</b> hear a config before shipping it, against the flow it will actually meet, and export it.</li>
         <li><b>Terminals:</b> one number per config that says what a graduation under it cost. The census ships as a JSON file.</li>
         <li><b>Traders:</b> practice on real launches with no money and an honest ledger. Most cohorts lose; the deck shows which.</li>
-        <li><b>Meteora:</b> a conformance corpus for the SDK. The verified histories ship as one file, and any build of the swap math replays through it in about a second. The 2.0 branch (PRs #123 to #126) was run through it on 11 October: {{confSwaps}} swaps, 0 mismatches.</li>
+        <li><b>Meteora:</b> a conformance corpus for the SDK. The verified histories ship as one file, and any build of the swap math replays through it in about a second. The 2.0 branch (PR #123, at its latest commit) was run through it on 11 October: {{confSwaps}} swaps, 0 mismatches.</li>
       </ul>
     </div></div>
     <div class="track"><span>B3</span><div>
@@ -113,7 +113,7 @@
         <li>A replay is a stress test, not a forecast: it prices the play on the tape under your config, it does not predict how traders would adapt. REC is the honest way to try.</li>
         <li>After migration the pool is modelled as constant product with the config's flat fee.</li>
         <li>The tapes cover days, not seasons.</li>
-        <li>Measured on the way: in SDK 1.5.13 <code>getPoolConfigsByOwner</code> filters on the leftover receiver, not the fee claimer. The SDK team opened a fix the same day (PR #124). The census shows how far it reaches: the two differ for {{splitShare}} of configs on mainnet ({{splitConfigs}}).</li>
+        <li>Measured on the way: in SDK 1.5.13 <code>getPoolConfigsByOwner</code> filters on the leftover receiver, not the fee claimer. The SDK team opened a fix the same day (PR #124, now part of #123). The census shows how far it reaches: the two differ for {{splitShare}} of configs on mainnet ({{splitConfigs}}).</li>
         <li>Also found: the Invent config's comments size slot-based fee schedules at 0.4 s a slot. Mainnet slots ran at {{slotSeconds}} s on {{date}}, so a schedule written as "60 seconds" in slots lasts about 33. The deck writes schedules in seconds.</li>
         <li>Next: a live recorder for new DBC pools, tapes for stock-quoted launches, and the migrated pool's own fee scheduler.</li>
       </ul>
