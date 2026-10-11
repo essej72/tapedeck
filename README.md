@@ -57,10 +57,10 @@ Run on 11 October 2026:
 | Math | Swaps replayed | Mismatches |
 |---|---|---|
 | SDK 1.5.13 (npm) | 116,724 | 0 |
-| SDK 2.0 branch, [PR #125](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/125) at `706bd11` | 116,724 | 0 |
-| The 2.0 math with one lamport added to every exact-in output (a check that the check works) | stops early | flagged in 326 of 354 pools |
+| SDK 2.0 branch: [PR #123](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/123) at `bdfe680`, #125 at `706bd11`, #126 at `ffde81d` | 116,724 each | 0 |
+| The 2.0 math with one lamport added to every exact-in output (a check that the check works) | stops early | flagged in 327 of 355 pools |
 
-What the corpus covers: 54 thousand buys and 62 thousand sells; exact-in and partial-fill swaps (10 of them cut short at the migration price); 2,880 swaps with a referral; 220 swaps inside the pool-creation transaction; 80 curve completions; rate limiters, linear and exponential schedulers, the dynamic fee, fees in quote and in the output token, slot and timestamp activation. What it does not cover: exact-out swaps (none in these histories) and transfer-fee or transfer-hook tokens.
+What the corpus covers: 54,496 buys and 62,228 sells; 108,351 exact-in swaps and 8,373 partial fills (10 of them cut short at the migration price); 2,880 swaps with a referral; 220 swaps inside the pool-creation transaction; 81 curve completions; rate limiters, linear and exponential schedulers, the dynamic fee, fees in quote and in the output token, slot and timestamp activation. What it does not cover: exact-out swaps (none in these histories) and transfer-fee or transfer-hook tokens.
 
 ## Run it
 
