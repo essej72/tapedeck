@@ -11,6 +11,7 @@
 // DAMM v2 itself recorded when it initialised the pool.
 
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import { createDammV2Program, deriveDammV2PoolAuthority, deriveDbcPoolAuthority, MAX_SQRT_PRICE, MIN_SQRT_PRICE } from "@meteora-ag/dynamic-bonding-curve-sdk";
 import { Connection } from "@solana/web3.js";
 import bs58 from "bs58";
@@ -112,7 +113,9 @@ export function poolShape(m: Migration) {
   };
 }
 
-export const readMigrations = (file: string | URL): Migration[] => readFileSync(file, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+/** One JSON object per line; a .gz file is read as it is. */
+export const readLines = (file: string | URL): string[] => (String(file).endsWith(".gz") ? gunzipSync(readFileSync(file)).toString("utf8") : readFileSync(file, "utf8")).split("\n").filter(Boolean);
+export const readMigrations = (file: string | URL): Migration[] => readLines(file).map((l) => JSON.parse(l));
 
 const fixedTier = (r: Migration) => (configFromBytes(bytes(r.configData)) as unknown as { migrationFeeOption: number }).migrationFeeOption < 6;
 

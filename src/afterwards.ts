@@ -14,7 +14,7 @@ import { createDammV2Program, DAMM_V2_PROGRAM_ID } from "@meteora-ag/dynamic-bon
 import { Connection } from "@solana/web3.js";
 import BN from "bn.js";
 import bs58 from "bs58";
-import { enginePool, poolShape, readMigrations, type Migration } from "./migration.ts";
+import { enginePool, poolShape, readLines, readMigrations, type Migration } from "./migration.ts";
 import { Rpc, RPC_URL } from "./rpc.ts";
 
 /** One DAMM v2 event of the pool, in chain order. Integers as decimal strings. */
@@ -118,7 +118,7 @@ export function replayAfterwards(row: Afterwards): AfterVerdict {
   return { swaps, exactOut, cutShort, mismatches };
 }
 
-export const readAfterwards = (file: string | URL): Afterwards[] => readFileSync(file, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+export const readAfterwards = (file: string | URL): Afterwards[] => readLines(file).map((l) => JSON.parse(l));
 
 export function summarize(rows: Afterwards[]) {
   const verdicts = rows.map((r) => ({ pool: r.pool, v: replayAfterwards(r) }));
