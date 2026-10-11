@@ -2,7 +2,8 @@
 //   node scripts/build-web.mjs
 // The pitch page is a template; its figures are filled in here from the same data files the deck loads, so the
 // pitch cannot drift from the evidence.
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -26,6 +27,13 @@ for (const f of ["index.html", "style.css"]) cpSync(join(root, "web", f), join(o
 cpSync(join(root, "web/data"), join(out, "data"), { recursive: true, filter: (src) => !/census(_all)?\.json$/.test(src) });
 if (existsSync(join(root, "web/img"))) cpSync(join(root, "web/img"), join(out, "img"), { recursive: true });
 writeFileSync(join(out, ".nojekyll"), "");
+// One tag for the script, the stylesheet and the data, taken from their contents: a deploy that changes any of
+// them changes every address at once, so nobody is served a new page with a cached script.
+const tag = createHash("sha1");
+for (const f of ["app.js", "style.css", ...readdirSync(join(out, "data")).sort().map((f) => `data/${f}`)]) tag.update(readFileSync(join(out, f)));
+const version = tag.digest("hex").slice(0, 8);
+const tagged = (html) => html.replace('src="app.js"', `src="app.js?v=${version}"`).replace('href="style.css"', `href="style.css?v=${version}"`);
+writeFileSync(join(out, "index.html"), tagged(readFileSync(join(out, "index.html"), "utf8")));
 
 const load = (name) => (existsSync(join(root, "web/data", name)) ? JSON.parse(readFileSync(join(root, "web/data", name), "utf8")) : null);
 const [ev, conf, lib, pkg] = [load("evidence.json"), load("conformance.json"), load("tapes.json"), JSON.parse(readFileSync(join(root, "package.json"), "utf8"))];
@@ -81,7 +89,7 @@ const template = readFileSync(join(root, "web/pitch.template.html"), "utf8");
 const missing = new Set();
 writeFileSync(
   join(out, "pitch.html"),
-  template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+  tagged(template).replace(/\{\{(\w+)\}\}/g, (_, key) => {
     if (!(key in figures)) missing.add(key);
     return figures[key] ?? "?";
   }),

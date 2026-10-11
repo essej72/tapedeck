@@ -49,9 +49,13 @@ export function unpack(p: PackedTape, slotSeconds: number): Tape {
   return { id: p.id, source: p.source, creator: p.creator, wallets: p.wallets, orders, graduated: p.graduated, complete: true };
 }
 
+// The page loads this script as app.js?v=<build>; the data files are asked for under the same tag, so a browser or
+// a CDN never pairs a new script with old data.
+const BUILD = new URL(import.meta.url).search;
+
 export async function getJson<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(path);
+    const res = await fetch(path + BUILD);
     return res.ok ? ((await res.json()) as T) : null;
   } catch {
     return null;
