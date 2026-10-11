@@ -25,7 +25,7 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 - **Where faking a graduation costs under 2% of the raise:** 84% of 1,131,326 pools completed their curve.
 - **Where it costs 10% or more:** 2.7% of 438,317 pools did.
 - **pump.fun, recorded 2026-10-10 to 2026-10-11:** 78 of 121 graduations that passed the check were one party buying the curve in the launch slot.
-- **Engine against chain:** 116,724 real swaps replayed across 355 pools and 50 kinds of config, 0 mismatches.
+- **Engine against chain:** 186,352 real swaps in 666 pools and 77 kinds of config replay to the lamport. 7 more pools were traded under older builds of the program and differ exactly where the program has since changed; they are counted as mismatches and explained under "Found on the way".
 - **Engine against the program itself:** 5,169 swaps simulated against the live program on 521 open pools, 3,969 of them exact-out (a swap nobody makes on mainnet, so no history can check it), 0 disagreements.
 - **Shelf:** 84 tapes: 24 DBC pools read from the chain and 60 pump.fun launches, picked from 561 that passed the fit check. Of 1,206 pump.fun launches recorded, 584 had under 12 orders and 61 failed the check.
 <!-- figures:end -->
@@ -40,17 +40,17 @@ Prices and fees come from the quote functions of `@meteora-ag/dynamic-bonding-cu
 
 Then it is held to the chain:
 
-- `node src/validate.ts <pool>` fetches a pool's whole history, replays every swap from the pool's own events and compares each field of each result with what the program emitted, to the lamport, then the final state with the live account.
+- `node src/validate.ts <pool>` fetches a pool's whole history, replays every swap from the pool's own events (the current `EvtSwap2`, and the older `EvtSwap` for swaps from before August 2025) and compares each field of each result with what the program emitted, to the lamport, then the final state with the live account. A transaction no endpoint can return with its events leaves a hole, and a history with a hole is reported as one, not replayed. A swap the engine refuses is a mismatch.
 - `node src/conformance.ts pick && node src/conformance.ts run` does that for pools spread over every combination of fee mode, fee token, activation type, first-swap setting and quote token in use on mainnet.
 - A pump.fun tape goes on the shelf only if a DBC config equal to pump.fun's curve returns the recorded number of tokens on every curve buy.
 - The deck does the same check live, in the browser, for any pool you paste. The browser build reads accounts and events from the IDL alone (no Anchor); it is tested against the SDK's Anchor coder on 160 real config accounts and 470 real events.
 - `node src/dryrun.ts` builds the `create_config` transaction for the deck's built-in designs and for 150 random settings of its form, and has a node simulate each against the live program. 126 were accepted, and every one was stored field for field as the deck derives it (start price, migration price and base threshold included); the other 27 the SDK's own validation had already refused (under 10% of liquidity locked), which the deck shows as an error. The program refused none.
 - `node src/probe.ts run` asks the live program about swaps nobody has made (exact-out), by simulation, and compares its answers with the engine's. See below.
-- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes, a spread of the simulated swaps, and 24 designs with the account the program stored for each.
+- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes, a spread of the simulated swaps, 24 designs with the account the program stored for each, and the awkward histories: swaps recorded with the older event, pools from older builds of the program, a history with a hole.
 
 ## Check an SDK build against mainnet
 
-The verified histories ship as one file, [`corpus.jsonl.gz`](https://github.com/essej72/tapedeck/releases/latest) (355 pools, 116,724 swaps, 50 kinds of config, events only, 20 MB). Any build of the SDK's swap math can be replayed through it, offline, in about a second:
+The verified histories ship as one file, [`corpus.jsonl.gz`](https://github.com/essej72/tapedeck/releases/latest) (666 pools, 186,352 swaps, 77 kinds of config, events only, 31 MB). Any build of the SDK's swap math can be replayed through it, offline, in about a second:
 
 ```bash
 node scripts/bundle-sdk-math.mjs ../dynamic-bonding-curve-sdk/packages/dynamic-bonding-curve
@@ -61,15 +61,17 @@ Run on 11 October 2026:
 
 | Math | Swaps replayed | Mismatches |
 |---|---|---|
-| SDK 1.5.13 (npm) | 116,724 | 0 |
-| SDK 2.0 branch: [PR #123](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/123) at `bdfe680`, #125 at `706bd11`, #126 at `ffde81d` | 116,724 each | 0 |
-| The 2.0 math with one lamport added to every exact-in output (a check that the check works) | stops early | flagged in 327 of 355 pools |
+| SDK 1.5.13 (npm) | 186,352 | 0 |
+| SDK 2.0 branch: [PR #123](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/123) at `bdfe680`, #125 at `706bd11`, #126 at `ffde81d` | 186,352 each | 0 |
+| The 2.0 math with one lamport added to every exact-in output (a check that the check works) | stops early | flagged in 602 of 666 pools |
 
-What the corpus covers: 54,496 buys and 62,228 sells; 108,351 exact-in swaps and 8,373 partial fills (10 of them cut short at the migration price); 2,880 swaps with a referral; 220 swaps inside the pool-creation transaction; 81 curve completions; rate limiters, linear and exponential schedulers, the dynamic fee, fees in quote and in the output token, slot and timestamp activation. What it does not cover: exact-out swaps, which nobody makes (next section), and transfer-fee or transfer-hook tokens.
+What the corpus covers: 89,651 buys and 96,701 sells; 172,304 exact-in swaps, 14,047 partial fills (39 of them cut short at the migration price) and a single exact-out swap; 9,028 swaps with a referral; 312 swaps inside the pool-creation transaction; 183 curve completions; 3,022 swaps from before August 2025, recorded with the older event; rate limiters, linear and exponential schedulers, the dynamic fee, fees in quote and in the output token, slot and timestamp activation. What it leaves out: seven pools traded under older builds of the program, which today's math should not reproduce (they are in `test/fixtures/old-program/` and under "Found on the way"). What it barely covers: exact-out swaps, which almost nobody makes (next section), and transfer-fee or transfer-hook tokens, not at all.
+
+The first cut of this file, on 10 October, had 355 pools and 116,724 swaps; it is still attached to the earlier release.
 
 ### Swaps nobody has made
 
-Exact-out swaps are in the program and in the SDK, but there are none in those histories and none among 6,376 swaps in a sample of the program's most recent transactions (11 October, `src/hunt.ts`). History cannot check a swap nobody makes, so `src/probe.ts` asks the program itself. It builds the swap for a real open pool and has a public RPC node simulate it against the live program (`simulateTransaction` with signature checks off: nothing is signed, nothing is sent, there is no key). The trader in the simulation is a large exchange wallet standing in as payer, which any funded address can when signatures are not checked; nothing touches it. The program's own `EvtSwap2`, the pool account it leaves behind and the two vault balances are then compared with what the engine predicts from the pool account before.
+Exact-out swaps are in the program and in the SDK, but there is one among the 186,352 in those histories and none among 6,376 swaps in a sample of the program's most recent transactions (11 October, `src/hunt.ts`). History cannot check a swap nobody makes, so `src/probe.ts` asks the program itself. It builds the swap for a real open pool and has a public RPC node simulate it against the live program (`simulateTransaction` with signature checks off: nothing is signed, nothing is sent, there is no key). The trader in the simulation is a large exchange wallet standing in as payer, which any funded address can when signatures are not checked; nothing touches it. The program's own `EvtSwap2`, the pool account it leaves behind and the two vault balances are then compared with what the engine predicts from the pool account before.
 
 <!-- probe:start -->
 Run on 2026-10-11: 521 open pools (334 quoted in SOL, 187 in USDC), 84 kinds of config, 266 of them pools nobody had traded yet.
@@ -185,8 +187,11 @@ npm run build
 <!-- found:start -->
 - **How far a known SDK bug reaches.** In SDK 1.5.13, `StateService.getPoolConfigsByOwner(owner)` filters `PoolConfig` accounts at byte offset 72, which is `leftover_receiver`; `fee_claimer` is at offset 40. I ran into it while indexing; the SDK team had opened a fix the same day ([PR #124](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/124)). What the census adds is the size of it: on 2026-10-10, 200,278 of 543,738 configs on mainnet (37%) had a fee claimer different from their leftover receiver, and 1.5.13 does not return those for their fee claimer. Reproduced on mainnet: fee claimer `7AdYv1gs9xhmg87Xyh84ryHrfht4khVvBLSbDqkMTwrm` owns three configs and the call returns none.
 - **Slot-based fee schedules run faster than the Invent config says.** Its comments size them at 0.4 s a slot. Block times sampled 100,000 slots apart on 2026-10-10 give 0.219 s a slot, so a schedule written as "60 seconds" in slots lasts about 33. Designs made here count in seconds (timestamp activation).
-- **The program has changed how a curve can be finished, and old histories show it.** In a continued run after the corpus was cut, three pools turned up that the engine refuses to replay. Each was completed in October 2025 by a single exact-in buy of the migration threshold plus one lamport (config `2CY1F7f3…`, 21,045 pools), and that last lamport ran past the migration price onto the curve's thin tail segment. Today's program stops an exact-in buy at the migration price and refuses it whole with `InsufficientLiquidity`, and the SDK does the same. Asked by simulation, the live program refuses that buy on two open pools of the same config. A history like that is reported as a disagreement, not skipped.
-- **The SDK (1.5.12 and later) no longer builds rate-limiter configs**, so the deck does not offer them for new designs. Configs that already use one still load and play: 45 rate-limiter pools (801 swaps) are in the conformance run, without a mismatch.
+- **Old histories remember old programs.** A longer run over 673 pools first turned up 13 that did not replay. None was a fault in today's SDK math; they came down to three things, and the replay now deals with each.
+  - *An older swap event.* Before program release 0.1.6 (19 August 2025) a swap emitted only `EvtSwap`. The replay used to skip those, so every later swap drifted. It now reads them: 3,022 swaps recorded that way replay to the lamport.
+  - *Holes in the fetched history.* The public RPC reported one transaction as missing and kept another without its inner instructions, and the collector dropped both without a word. A transaction a node cannot give whole is now asked of a second archive, and a pool with a hole left in it is reported as such instead of being replayed.
+  - *Older builds of the program.* 7 pools disagree with today's math, and should. Six were completed between 20 October and 3 November 2025 by one exact-in buy of the threshold plus one lamport, which ran past the migration price onto the curve's thin tail (config `2CY1F7f3…`). Release 0.1.7 (4 November 2025) stops an exact-in buy at the migration price; asked by simulation, the live program refuses that buy today. The seventh, from May 2025, paid exactly 50% where today's math adds the dynamic fee on top: the maximum fee was 50% until release 0.1.3. They are counted as mismatches, not left out.
+- **The SDK (1.5.12 and later) no longer builds rate-limiter configs**, so the deck does not offer them for new designs. Configs that already use one still load and play: 55 rate-limiter pools (873 swaps) are in the conformance run, without a mismatch.
 <!-- found:end -->
 
 ## Credits

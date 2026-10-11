@@ -46,6 +46,14 @@ export async function loadPoolFromChain(address: string, custom: string, say: (t
       if (!configData) throw new Error("the pool's config account could not be read");
       const config = configFromBytes(bytes(configData));
       const history = await fetchHistory(address, { url: ep.url, decode: decodeEvent, lanes: ep.lanes, gapMs: ep.gapMs, maxTx: MAX_TX, onProgress: (done, total) => say(`Fetching transactions from ${ep.name}: ${int(done)} of ${int(total)}…`) });
+      if (history.holes.length) {
+        last = `this endpoint could not return ${int(history.holes.length)} of the pool's transactions with their events, so the history has holes`;
+        if (i + 1 < endpoints.length) {
+          say("That endpoint keeps some of the pool's transactions without their events. Trying the archive, which is slower…");
+          continue;
+        }
+        throw new Error(`${last}. Put another archive RPC endpoint in the box and try again`);
+      }
       const fixture = { pool: address, config: pool.config, configData, poolData, txs: history.txs, complete: history.complete };
       const verdict = replayFixture(fixture);
       if (verdict.skipped) {

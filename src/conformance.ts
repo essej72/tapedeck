@@ -88,14 +88,15 @@ function busy(n: number): void {
 async function run(only = ""): Promise<void> {
   const db = openTapes();
   db.exec(SCHEMA);
-  const done = db.prepare("UPDATE conformance SET state=?, swaps=?, mismatches=?, final_checked=?, note=?, checked=? WHERE pool=?");
+  if (!db.prepare("PRAGMA table_info(conformance)").all().some((c) => c.name === "older")) db.exec("ALTER TABLE conformance ADD COLUMN older INTEGER DEFAULT 0");
+  const done = db.prepare("UPDATE conformance SET state=?, swaps=?, mismatches=?, final_checked=?, note=?, checked=?, older=? WHERE pool=?");
   for (;;) {
     // recent pools first (the fast endpoint has them); within that, one pool per kind before a second of any
     const job = db.prepare("SELECT c.pool, c.kind, c.recent FROM conformance c WHERE c.state='todo' AND c.kind LIKE ? ORDER BY c.recent DESC, (SELECT COUNT(*) FROM conformance d WHERE d.kind = c.kind AND d.state <> 'todo') LIMIT 1").get(`%${only}%`);
     if (!job) break;
     const pool = job.pool as string;
     let state = "done";
-    let v = { swaps: 0, mismatches: [] as string[], finalChecked: false, skipped: undefined as string | undefined };
+    let v = { swaps: 0, older: 0 as number | undefined, mismatches: [] as string[], finalChecked: false, skipped: undefined as string | undefined };
     try {
       // A recent pool's whole history is on the fast endpoint; an old one needs the archive.
       // The archive endpoint allows about 40 requests per 10 s per method; stay under it.
@@ -111,7 +112,7 @@ async function run(only = ""): Promise<void> {
       state = "error";
       v.skipped = e instanceof Error ? e.message.slice(0, 200) : String(e);
     }
-    done.run(state, v.swaps, v.mismatches.length, v.finalChecked ? 1 : 0, v.skipped ?? v.mismatches.slice(0, 3).join(" | "), Date.now() / 1000, pool);
+    done.run(state, v.swaps, v.mismatches.length, v.finalChecked ? 1 : 0, v.skipped ?? v.mismatches.slice(0, 3).join(" | "), Date.now() / 1000, v.older ?? 0, pool);
     console.log(`${new Date().toISOString().slice(11, 19)} ${pool.slice(0, 8)} [${job.kind}] ${state} ${v.swaps} swaps ${v.mismatches.length} mismatches ${v.skipped ?? ""}`);
   }
 }
@@ -125,9 +126,14 @@ function report(): void {
     rows.set(kind, { kind, pools: r.pools + 1, swaps: r.swaps + swaps, mismatches: r.mismatches + mismatches, bad: r.bad + (mismatches > 0 ? 1 : 0), finals: r.finals + final });
   };
   const seen = new Set<string>();
-  for (const r of db.prepare("SELECT pool, kind, swaps, mismatches, final_checked FROM conformance WHERE state='done' AND swaps > 0").all()) {
+  let older = 0;
+  // A pool whose first recorded swap the engine refuses has no replayed swaps and still counts: it disagrees.
+  const disagree: { pool: string; kind: string; swaps: number; first: string }[] = [];
+  for (const r of db.prepare("SELECT pool, kind, swaps, mismatches, final_checked, older, note FROM conformance WHERE state='done' AND (swaps > 0 OR mismatches > 0)").all()) {
     seen.add(r.pool as string);
+    if ((r.mismatches as number) === 0) older += Number(r.older ?? 0);
     add(r.kind as string, r.swaps as number, r.mismatches as number, r.final_checked as number);
+    if ((r.mismatches as number) > 0) disagree.push({ pool: r.pool as string, kind: r.kind as string, swaps: r.swaps as number, first: String(r.note).split(" | ")[0] });
   }
   if (db.prepare("SELECT name FROM sqlite_master WHERE name='dbc_tape'").get()) {
     for (const r of db.prepare("SELECT pool, swaps, mismatches, fixture FROM dbc_tape WHERE state IN ('ok','mismatch') AND swaps > 0").all()) {
@@ -137,17 +143,25 @@ function report(): void {
     }
   }
   const kinds = [...rows.values()].sort((a, b) => b.swaps - a.swaps);
-  const total = kinds.reduce((t, r) => ({ pools: t.pools + r.pools, swaps: t.swaps + r.swaps, mismatches: t.mismatches + r.mismatches, finals: t.finals + r.finals }), { pools: 0, swaps: 0, mismatches: 0, finals: 0 });
+  const sum = kinds.reduce((t, r) => ({ pools: t.pools + r.pools, swaps: t.swaps + r.swaps, mismatches: t.mismatches + r.mismatches, finals: t.finals + r.finals }), { pools: 0, swaps: 0, mismatches: 0, finals: 0 });
+  // `pools` and `swaps` are the ones that agree on every swap; the pools that do not are listed beside them.
+  const total = { pools: sum.pools - disagree.length, swaps: sum.swaps - disagree.reduce((n, d) => n + d.swaps, 0), older, mismatches: sum.mismatches, finals: sum.finals, disagreeing: disagree.length };
   for (const r of kinds) console.log(`${String(r.pools).padStart(4)} pools ${String(r.swaps).padStart(8)} swaps ${String(r.mismatches).padStart(5)} mismatches (${r.bad} pools)  ${r.kind}`);
   console.log(total, db.prepare("SELECT state, COUNT(*) n FROM conformance GROUP BY state").all());
+  for (const d of disagree) console.log(`  disagrees: ${d.pool} [${d.kind}] ${d.first}`);
   mkdirSync(new URL("../web/data/", import.meta.url), { recursive: true });
-  writeFileSync(new URL("../web/data/conformance.json", import.meta.url), JSON.stringify({ generatedAt: new Date().toISOString(), total, kinds }));
+  writeFileSync(new URL("../web/data/conformance.json", import.meta.url), JSON.stringify({ generatedAt: new Date().toISOString(), total, kinds, disagree }));
 }
 
 type CorpusPool = { pool: string; kind: string; config: string; configData: string; txs: ChainTx[] };
 
-// The events a replay reads. EvtSwap repeats EvtSwap2, so it is left out of the corpus.
-const REPLAYED = new Set(["evtInitializePool", "evtSwap2", "evtCurveComplete"]);
+// The events a replay reads. Since August 2025 EvtSwap repeats EvtSwap2 and is left out of the corpus; before that
+// it is the only record of a swap and is kept.
+const REPLAYED = new Set(["evtInitializePool", "evtSwap", "evtSwap2", "evtCurveComplete"]);
+const forCorpus = (pool: string, events: ChainTx["events"]): ChainTx["events"] => {
+  const mine = events.filter((e) => REPLAYED.has(e.name) && e.data.pool === pool);
+  return mine.filter((e, k) => !(e.name === "evtSwap" && mine[k + 1]?.name === "evtSwap2")).map(({ name, data }) => ({ name, data }));
+};
 
 /** Every verified pool in the local store, with its config's bytes. */
 function* storedPools(): Generator<CorpusPool> {
@@ -162,7 +176,7 @@ function* storedPools(): Generator<CorpusPool> {
     }
   }
   for (const [pool, kind] of pools) {
-    const txs = loadPool(db, pool).map((tx) => ({ ...tx, events: tx.events.filter((e) => REPLAYED.has(e.name)).map(({ name, data }) => ({ name, data })) })).filter((tx) => tx.events.length);
+    const txs = loadPool(db, pool).map((tx) => ({ ...tx, events: forCorpus(pool, tx.events) })).filter((tx) => tx.events.length);
     const init = txs.flatMap((tx) => tx.events).find((e) => e.name === "evtInitializePool" && e.data.pool === pool);
     const row = init && configOf.get(Buffer.from(bs58.decode(init.data.config as string)));
     if (init && row) yield { pool, kind, config: init.data.config as string, configData: Buffer.from(row.data as Uint8Array).toString("base64"), txs };
@@ -171,14 +185,35 @@ function* storedPools(): Generator<CorpusPool> {
 
 function exportCorpus(file: string): void {
   const lines: string[] = [];
-  let swaps = 0;
+  // What the corpus covers, counted from the events themselves.
+  const c = { swaps: 0, older: 0, buys: 0, sells: 0, exactIn: 0, partialFill: 0, exactOut: 0, cutShort: 0, referral: 0, inCreateTx: 0, completions: 0 };
   for (const p of storedPools()) {
-    swaps += p.txs.reduce((n, tx) => n + tx.events.filter((e) => e.name === "evtSwap2").length, 0);
+    for (const tx of p.txs) {
+      const created = tx.events.some((e) => e.name === "evtInitializePool");
+      for (const e of tx.events) {
+        if (e.name === "evtCurveComplete") c.completions++;
+        if (e.name !== "evtSwap" && e.name !== "evtSwap2") continue;
+        const d = e.data as { tradeDirection: number; hasReferral: boolean; swapParameters?: { swapMode: number }; swapResult: { amountLeft?: string } };
+        c.swaps++;
+        if (e.name === "evtSwap") c.older++;
+        if (d.tradeDirection === 1) c.buys++;
+        else c.sells++;
+        const mode = d.swapParameters?.swapMode ?? 0;
+        if (mode === 0) c.exactIn++;
+        else if (mode === 1) c.partialFill++;
+        else c.exactOut++;
+        if (mode === 1 && d.swapResult.amountLeft !== "0") c.cutShort++;
+        if (d.hasReferral) c.referral++;
+        if (created) c.inCreateTx++;
+      }
+    }
     lines.push(JSON.stringify(p));
   }
   const packed = gzipSync(lines.join("\n"), { level: 9 });
   writeFileSync(file, packed);
-  console.log(`${lines.length} pools, ${swaps} swaps, ${(packed.length / 1e6).toFixed(1)} MB -> ${file}`);
+  console.log(`${lines.length} pools, ${c.swaps} swaps, ${(packed.length / 1e6).toFixed(1)} MB -> ${file}`);
+  console.log(JSON.stringify({ pools: lines.length, megabytes: Number((packed.length / 1e6).toFixed(1)), ...c }));
+  writeFileSync(new URL("../web/data/corpus.json", import.meta.url), JSON.stringify({ generatedAt: new Date().toISOString(), pools: lines.length, megabytes: Number((packed.length / 1e6).toFixed(1)), ...c }));
 }
 
 /**

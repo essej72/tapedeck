@@ -75,10 +75,11 @@
     <div class="track"><span>A3</span><div>
       <h3>It is not a simulator's guess. It is checked.</h3>
       <div class="figures">
-        <div><b>116,724</b><span>real mainnet swaps replayed from pool creation, across 355 pools and 50 kinds of config</span></div>
-        <div><b>0</b><span>mismatches, comparing amount in, amount out, next price and every fee, to the lamport</span></div>
+        <div><b>186,352</b><span>real mainnet swaps replayed from pool creation, across 666 pools and 77 kinds of config</span></div>
+        <div><b>0</b><span>mismatches in those pools, comparing amount in, amount out, next price and every fee, to the lamport</span></div>
         <div><b class="tb">0.24%</b><span>worst gap between replayed and recorded tokens on nine buys in ten, on any pump.fun tape on the shelf</span></div>
       </div>
+      <p>7 more pools do not replay, and should not: they were traded under older builds of the program, before an exact-in buy was stopped at the migration price and while the maximum fee was 50%. They are counted and explained in the README, not left out.</p>
       <p>Do not take the number on trust: paste a pool of your own into the deck and it runs the same check in front of you.</p>
       <p>History only covers the swaps people make, and nobody makes exact-out swaps. So those were put to the program itself: 3,735 transactions simulated against the live program on 521 open pools, 3,969 exact-out swaps, 0 disagreements. Nothing signed, nothing sent.</p>
       <p>Prices and fees come from Meteora's SDK. Around them the engine does what the program does and the SDK leaves out: the volatility tracker before and after each swap, the fee buckets, the minimum-fee first swap, completion at the threshold. A pump.fun tape is kept only if a DBC config equal to pump.fun's curve reproduces its recorded fills: of 1,206 recorded, 584 were too short to play, 61 failed the check and 561 passed.</p>
@@ -103,7 +104,7 @@
         <li><b>Launchpad builders:</b> hear a config before shipping it, against the flow it will actually meet, and export it.</li>
         <li><b>Terminals:</b> one number per config that says what a graduation under it cost. The census ships as a JSON file.</li>
         <li><b>Traders:</b> practice on real launches with no money and an honest ledger. Most cohorts lose; the deck shows which.</li>
-        <li><b>Meteora:</b> a conformance corpus for the SDK. The verified histories ship as one 20 MB file, and any build of the swap math replays through it in about a second. The 2.0 branch (PRs #123 to #126) was run through it on 11 October: 116,724 swaps, 0 mismatches.</li>
+        <li><b>Meteora:</b> a conformance corpus for the SDK. The verified histories ship as one file, and any build of the swap math replays through it in about a second. The 2.0 branch (PRs #123 to #126) was run through it on 11 October: 186,352 swaps, 0 mismatches.</li>
       </ul>
     </div></div>
     <div class="track"><span>B3</span><div>

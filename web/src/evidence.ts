@@ -32,7 +32,8 @@ export type Evidence = {
   lookalikes?: { designs: number; pools: number; completedShare: number };
   designs: DesignRow[];
 };
-export type Conformance = { generatedAt: string; total: { pools: number; swaps: number; mismatches: number; finals: number }; kinds: { kind: string; pools: number; swaps: number; mismatches: number }[] };
+/** `total.pools` and `total.swaps` count the pools that agree on every swap; `disagree` lists the ones that do not. */
+export type Conformance = { generatedAt: string; total: { pools: number; swaps: number; older?: number; mismatches: number; finals: number; disagreeing?: number }; kinds: { kind: string; pools: number; swaps: number; mismatches: number }[]; disagree?: { pool: string; kind: string; swaps: number; first: string }[] };
 
 /** A design has no name on chain. Say what can be said: a registered partner name, or how its mints present themselves. */
 const label = (d: DesignRow): string => d.name ?? (d.suffix ? `mints ending “${d.suffix.suffix}” (${pct(d.suffix.share, 0)})` : `design ${d.hash.slice(0, 6)}`);
@@ -168,7 +169,13 @@ export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib
 
   if (conf?.total?.pools) {
     const c = conf.total;
-    $("conf-lede").textContent = `The engine replayed the full swap history of ${int(c.pools)} real pools, chosen to cover every combination of fee mode, fee token, activation type and quote token in use: ${int(c.swaps)} swaps. Each was compared with the program's own event, field by field, to the last lamport: amount in, amount out, next price, trading fee, protocol fee, referral fee, reserve. Mismatches: ${int(c.mismatches)}.`;
+    const old = c.disagreeing ?? 0;
+    $("conf-lede").textContent =
+      `The engine replayed the full swap history of ${int(c.pools + old)} real pools, chosen to cover every combination of fee mode, fee token, activation type and quote token in use. Each swap was compared with the program's own event, field by field, to the last lamport: amount in, amount out, next price, trading fee, protocol fee, referral fee, reserve. ${int(c.pools)} pools agree on every one of their ${int(c.swaps)} swaps` +
+      (c.older ? `, ${int(c.older)} of them from before August 2025, when the program recorded swaps with an older event. ` : ". ") +
+      (old
+        ? `The other ${int(old)} were traded under older builds of the program and differ exactly where the program has since changed: an exact-in buy could once run past the migration price, and the maximum fee was once 50%. They are counted here as mismatches, not left out.`
+        : "Mismatches: 0.");
     $("conf-table").replaceChildren(
       el("thead", {}, el("tr", {}, ...["Kind of config", "Pools", "Swaps", "Mismatches"].map((x) => el("th", {}, x)))),
       el("tbody", {}, ...conf.kinds.map((k) => el("tr", {}, el("td", {}, k.kind), el("td", {}, int(k.pools)), el("td", {}, int(k.swaps)), el("td", {}, int(k.mismatches))))),

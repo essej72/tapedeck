@@ -7,7 +7,11 @@ import { PROGRAM_ID } from "../layout.ts";
 import { Rpc } from "../rpc.ts";
 
 export type ChainEvent = { name: string; data: Record<string, unknown>; raw?: string };
-export type ChainTx = { sig: string; slot: number; blockTime: number; payer: string; events: ChainEvent[] };
+/**
+ * `unreadable`: the node could not give the transaction whole: it did not find it, or it keeps it without the inner
+ * instructions that carry the program's events. Such a transaction may hide a swap, so it is never treated as empty.
+ */
+export type ChainTx = { sig: string; slot: number; blockTime: number; payer: string; events: ChainEvent[]; unreadable?: string };
 export type EventDecoder = (data: Uint8Array) => { name: string; data: Record<string, unknown> } | null;
 
 export type SigInfo = { signature: string; slot: number; blockTime: number | null; err: unknown };
@@ -31,13 +35,16 @@ export async function signaturesOf(rpc: Rpc, address: string, max = 20_000): Pro
   return out.reverse(); // oldest first, block order preserved inside a slot
 }
 
-/** One transaction's DBC events. `withBytes` also hands back each event's raw instruction data. */
+/** One transaction's DBC events; null for a transaction that failed on chain. `withBytes` also hands back raw event data. */
 export async function transactionOf(rpc: Rpc, sig: string, decode: EventDecoder, withBytes?: (event: ChainEvent, bytes: Uint8Array) => void): Promise<ChainTx | null> {
   const tx = await rpc.call<RawTx | null>("getTransaction", [sig, { encoding: "json", maxSupportedTransactionVersion: 1, commitment: "confirmed" }]);
-  if (!tx?.meta || tx.meta.err) return null;
+  if (!tx?.meta) return { sig, slot: tx?.slot ?? 0, blockTime: tx?.blockTime ?? 0, payer: "", events: [], unreadable: "the node does not have it" };
+  if (tx.meta.err) return null;
   const keys = [...tx.transaction.message.accountKeys, ...(tx.meta.loadedAddresses?.writable ?? []), ...(tx.meta.loadedAddresses?.readonly ?? [])];
+  // Some archive nodes keep old transactions without inner instructions and logs. Events live in inner instructions.
+  if (tx.meta.innerInstructions == null) return { sig, slot: tx.slot, blockTime: tx.blockTime ?? 0, payer: keys[0], events: [], unreadable: "the node keeps it without inner instructions" };
   const events: ChainEvent[] = [];
-  for (const group of tx.meta.innerInstructions ?? []) {
+  for (const group of tx.meta.innerInstructions) {
     for (const ix of group.instructions) {
       if (keys[ix.programIdIndex] !== PROGRAM_ID) continue;
       const bytes = bs58.decode(ix.data);
@@ -59,12 +66,17 @@ export type HistoryOptions = {
   gapMs?: number;
   /** A long history is cut after this many transactions, counted from the pool's creation. */
   maxTx?: number;
+  /** Other endpoints to ask for a transaction the first one cannot give whole. */
+  fallbacks?: string[];
   onProgress?: (done: number, total: number) => void;
   withBytes?: (event: ChainEvent, bytes: Uint8Array) => void;
 };
 
-/** The pool's transactions that carry DBC events, from its creation on. `complete` is false when maxTx cut it. */
-export async function fetchHistory(pool: string, opts: HistoryOptions): Promise<{ txs: ChainTx[]; signatures: number; complete: boolean }> {
+/**
+ * The pool's transactions that carry DBC events, from its creation on. `complete` is false when maxTx cut it.
+ * `holes` lists the transactions no endpoint could give whole: with any of those, the history cannot be trusted.
+ */
+export async function fetchHistory(pool: string, opts: HistoryOptions): Promise<{ txs: ChainTx[]; signatures: number; complete: boolean; holes: string[] }> {
   const { url, decode, lanes = 4, gapMs = 120, maxTx = 6000 } = opts;
   const sigs = (await signaturesOf(new Rpc(url, gapMs), pool, 80_000)).filter((s) => !s.err);
   const want = sigs.slice(0, maxTx);
@@ -80,5 +92,17 @@ export async function fetchHistory(pool: string, opts: HistoryOptions): Promise<
     }
   };
   await Promise.all(Array.from({ length: lanes }, lane));
-  return { txs: txs.filter((tx): tx is ChainTx => tx !== null && tx.events.length > 0), signatures: sigs.length, complete: sigs.length <= maxTx };
+  const holes: string[] = [];
+  for (const [i, tx] of txs.entries()) {
+    if (!tx?.unreadable) continue;
+    for (const other of (opts.fallbacks ?? []).filter((u) => u !== url)) {
+      const again = await transactionOf(new Rpc(other, 400), want[i].signature, decode, opts.withBytes).catch(() => tx);
+      if (!again?.unreadable) {
+        txs[i] = again;
+        break;
+      }
+    }
+    if (txs[i]?.unreadable) holes.push(want[i].signature);
+  }
+  return { txs: txs.filter((tx): tx is ChainTx => tx !== null && !tx.unreadable && tx.events.length > 0), signatures: sigs.length, complete: sigs.length <= maxTx, holes };
 }

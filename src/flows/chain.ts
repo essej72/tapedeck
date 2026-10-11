@@ -8,11 +8,15 @@
 import { mkdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { decodeEventIx } from "../engine/codec.ts";
+import { RPC_URL } from "../rpc.ts";
 import { fetchHistory, type ChainTx, type EventDecoder } from "./history.ts";
 
 export type { ChainEvent, ChainTx } from "./history.ts";
 
 export const TX_RPC_URL = process.env.TX_RPC_URL ?? "https://solana-rpc.publicnode.com";
+// Asked, in turn, for a transaction the first endpoint cannot give whole. The public mainnet endpoint keeps some old
+// transactions without their inner instructions; the second archive has had them.
+export const ARCHIVES = [RPC_URL, "https://public.rpc.solanavibestation.com"];
 const DATA_DIR = new URL("../../data/", import.meta.url);
 mkdirSync(DATA_DIR, { recursive: true });
 export const TAPES_DB = new URL("tapes.db", DATA_DIR);
@@ -41,6 +45,7 @@ export function openTapes(): DatabaseSync {
     CREATE TABLE IF NOT EXISTS chain_tx (pool TEXT, seq INTEGER, sig TEXT, slot INTEGER, block_time INTEGER, payer TEXT, events TEXT, PRIMARY KEY (pool, seq));
     CREATE TABLE IF NOT EXISTS chain_pool (pool TEXT PRIMARY KEY, n_sigs INTEGER, n_tx INTEGER, complete INTEGER, fetched REAL);
   `);
+  if (!db.prepare("PRAGMA table_info(chain_pool)").all().some((c) => c.name === "holes")) db.exec("ALTER TABLE chain_pool ADD COLUMN holes INTEGER DEFAULT 0");
   return db;
 }
 
@@ -49,8 +54,9 @@ export function openTapes(): DatabaseSync {
  * `maxTx` transactions; chain_pool.complete says whether it was. `keepRaw` also stores each event's raw bytes.
  */
 export async function fetchPool(db: DatabaseSync, pool: string, opts: { lanes?: number; maxTx?: number; gapMs?: number; url?: string; keepRaw?: boolean } = {}): Promise<ChainTx[]> {
-  const { txs, signatures, complete } = await fetchHistory(pool, {
+  const { txs, signatures, complete, holes } = await fetchHistory(pool, {
     url: opts.url ?? TX_RPC_URL,
+    fallbacks: ARCHIVES,
     decode: anchorDecode,
     lanes: opts.lanes,
     gapMs: opts.gapMs,
@@ -61,12 +67,14 @@ export async function fetchPool(db: DatabaseSync, pool: string, opts: { lanes?: 
   db.exec("BEGIN");
   db.prepare("DELETE FROM chain_tx WHERE pool = ?").run(pool);
   txs.forEach((tx, seq) => insert.run(pool, seq, tx.sig, tx.slot, tx.blockTime, tx.payer, JSON.stringify(tx.events)));
-  db.prepare("INSERT OR REPLACE INTO chain_pool VALUES (?,?,?,?,?)").run(pool, signatures, txs.length, complete ? 1 : 0, Date.now() / 1000);
+  db.prepare("INSERT OR REPLACE INTO chain_pool (pool, n_sigs, n_tx, complete, fetched, holes) VALUES (?,?,?,?,?,?)").run(pool, signatures, txs.length, complete ? 1 : 0, Date.now() / 1000, holes.length);
   db.exec("COMMIT");
   return txs;
 }
 
 export const isComplete = (db: DatabaseSync, pool: string): boolean => db.prepare("SELECT complete FROM chain_pool WHERE pool = ?").get(pool)?.complete === 1;
+/** Transactions of the stored history that no endpoint could give whole (each may hide a swap). */
+export const holesIn = (db: DatabaseSync, pool: string): number => Number(db.prepare("SELECT holes FROM chain_pool WHERE pool = ?").get(pool)?.holes ?? 0);
 
 export function loadPool(db: DatabaseSync, pool: string): ChainTx[] {
   return db

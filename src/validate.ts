@@ -5,7 +5,7 @@
 
 import { poolFromBytes } from "./engine/bytes.ts";
 import { replayFixture, type Fixture } from "./engine/verify.ts";
-import { fetchPool, isComplete, loadPool, openTapes } from "./flows/chain.ts";
+import { fetchPool, holesIn, isComplete, loadPool, openTapes } from "./flows/chain.ts";
 import { Rpc } from "./rpc.ts";
 
 export { replayFixture, type Fixture, type Verdict } from "./engine/verify.ts";
@@ -25,7 +25,7 @@ export async function buildFixture(pool: string, opts: { refetch?: boolean; url?
   if (opts.refetch || txs.length === 0) txs = await fetchPool(db, pool, { url: opts.url, maxTx: opts.maxTx, gapMs: opts.gapMs, keepRaw: opts.keepRaw });
   const poolData = await account(pool);
   const config = poolFromBytes(Buffer.from(poolData, "base64")).config;
-  return { pool, config, configData: await account(config), poolData, txs, complete: isComplete(db, pool) };
+  return { pool, config, configData: await account(config), poolData, txs, complete: isComplete(db, pool), holes: holesIn(db, pool) };
 }
 
 if (import.meta.main) {

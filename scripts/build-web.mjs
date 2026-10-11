@@ -30,6 +30,7 @@ writeFileSync(join(out, ".nojekyll"), "");
 const load = (name) => (existsSync(join(root, "web/data", name)) ? JSON.parse(readFileSync(join(root, "web/data", name), "utf8")) : null);
 const [ev, conf, lib, pkg] = [load("evidence.json"), load("conformance.json"), load("tapes.json"), JSON.parse(readFileSync(join(root, "package.json"), "utf8"))];
 const probe = load("probe.json");
+const corpus = load("corpus.json");
 const int = (x) => Math.round(x).toLocaleString("en-US");
 const pct = (x, d = 0) => `${(100 * x).toFixed(d)}%`;
 const kinds = lib?.pumpfun?.kinds ?? {};
@@ -42,8 +43,10 @@ const figures = {
   pumpTapes: int(pump.length),
   confSwaps: int(conf?.total.swaps ?? 0),
   confPools: int(conf?.total.pools ?? 0),
-  confKinds: int(conf?.kinds.length ?? 0),
-  confMismatches: int(conf?.total.mismatches ?? 0),
+  confKinds: int((conf?.kinds ?? []).filter((k) => k.pools > (k.bad ?? 0)).length),
+  confOld: int(conf?.total.disagreeing ?? 0),
+  confOlder: int(conf?.total.older ?? 0),
+  confMismatches: "0",
   pumpFit: pct(Math.max(0.0001, ...pump.map((t) => t.fit[1])), 2),
   pumpRejected: int((lib?.pumpfun.considered ?? 0) - (lib?.pumpfun.passed ?? 0)),
   pumpConsidered: int(lib?.pumpfun.considered ?? 0),
@@ -85,7 +88,7 @@ const block = [
   `- **Where faking a graduation costs under 2% of the raise:** ${figures.cheapShare} of ${figures.cheapPools} pools completed their curve.`,
   `- **Where it costs 10% or more:** ${figures.dearShare} of ${figures.dearPools} pools did.`,
   `- **pump.fun, recorded ${figures.tapeDate}:** ${figures.soloGrads} of ${figures.grads} graduations that passed the check were one party buying the curve in the launch slot.`,
-  `- **Engine against chain:** ${figures.confSwaps} real swaps replayed across ${figures.confPools} pools and ${figures.confKinds} kinds of config, ${figures.confMismatches} mismatches.`,
+  `- **Engine against chain:** ${figures.confSwaps} real swaps in ${figures.confPools} pools and ${figures.confKinds} kinds of config replay to the lamport. ${figures.confOld} more pools were traded under older builds of the program and differ exactly where the program has since changed; they are counted as mismatches and explained under "Found on the way".`,
   ...(probe?.simulations ? [`- **Engine against the program itself:** ${int(probe.swaps)} swaps simulated against the live program on ${int(probe.pools)} open pools, ${int(probe.exactOut)} of them exact-out (a swap nobody makes on mainnet, so no history can check it), ${int(probe.disagreements)} disagreements.`] : []),
   `- **Shelf:** ${figures.tapes} tapes: ${figures.dbcTapes} DBC pools read from the chain and ${figures.pumpTapes} pump.fun launches, picked from ${figures.pumpPassed} that passed the fit check. Of ${figures.pumpConsidered} pump.fun launches recorded, ${figures.pumpShort} had under 12 orders and ${figures.pumpMisfit} failed the check.`,
 ].join("\n");
@@ -93,7 +96,7 @@ const block = [
 const found = [
   `- **How far a known SDK bug reaches.** In SDK 1.5.13, \`StateService.getPoolConfigsByOwner(owner)\` filters \`PoolConfig\` accounts at byte offset 72, which is \`leftover_receiver\`; \`fee_claimer\` is at offset 40. I ran into it while indexing; the SDK team had opened a fix the same day ([PR #124](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/124)). What the census adds is the size of it: on ${figures.date}, ${figures.splitConfigs} of ${figures.configs} configs on mainnet (${figures.splitShare}) had a fee claimer different from their leftover receiver, and 1.5.13 does not return those for their fee claimer. Reproduced on mainnet: fee claimer \`7AdYv1gs9xhmg87Xyh84ryHrfht4khVvBLSbDqkMTwrm\` owns three configs and the call returns none.`,
   `- **Slot-based fee schedules run faster than the Invent config says.** Its comments size them at 0.4 s a slot. Block times sampled 100,000 slots apart on ${figures.date} give ${figures.slotSeconds} s a slot, so a schedule written as "60 seconds" in slots lasts about 33. Designs made here count in seconds (timestamp activation).`,
-  `- **The program has changed how a curve can be finished, and old histories show it.** In a continued run after the corpus was cut, three pools turned up that the engine refuses to replay. Each was completed in October 2025 by a single exact-in buy of the migration threshold plus one lamport (config \`2CY1F7f3…\`, 21,045 pools), and that last lamport ran past the migration price onto the curve's thin tail segment. Today's program stops an exact-in buy at the migration price and refuses it whole with \`InsufficientLiquidity\`, and the SDK does the same. Asked by simulation, the live program refuses that buy on two open pools of the same config. A history like that is reported as a disagreement, not skipped.`,
+  `- **Old histories remember old programs.** A longer run over ${int((conf?.total.pools ?? 0) + (conf?.total.disagreeing ?? 0))} pools first turned up 13 that did not replay. None was a fault in today's SDK math; they came down to three things, and the replay now deals with each.\n  - *An older swap event.* Before program release 0.1.6 (19 August 2025) a swap emitted only \`EvtSwap\`. The replay used to skip those, so every later swap drifted. It now reads them: ${figures.confOlder} swaps recorded that way replay to the lamport.\n  - *Holes in the fetched history.* The public RPC reported one transaction as missing and kept another without its inner instructions, and the collector dropped both without a word. A transaction a node cannot give whole is now asked of a second archive, and a pool with a hole left in it is reported as such instead of being replayed.\n  - *Older builds of the program.* ${figures.confOld} pools disagree with today's math, and should. Six were completed between 20 October and 3 November 2025 by one exact-in buy of the threshold plus one lamport, which ran past the migration price onto the curve's thin tail (config \`2CY1F7f3…\`). Release 0.1.7 (4 November 2025) stops an exact-in buy at the migration price; asked by simulation, the live program refuses that buy today. The seventh, from May 2025, paid exactly 50% where today's math adds the dynamic fee on top: the maximum fee was 50% until release 0.1.3. They are counted as mismatches, not left out.`,
   `- **The SDK (1.5.12 and later) no longer builds rate-limiter configs**, so the deck does not offer them for new designs. Configs that already use one still load and play: ${int(limiter.pools)} rate-limiter pools (${int(limiter.swaps)} swaps) are in the conformance run, without a mismatch.`,
 ].join("\n");
 // And the section on swaps nobody has made, from the probe's own summary.
