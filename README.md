@@ -24,6 +24,7 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 - **Where it costs 10% or more:** 2.7% of 438,317 pools did.
 - **pump.fun, recorded 2026-10-10 to 2026-10-11:** 78 of 121 graduations that passed the check were one party buying the curve in the launch slot.
 - **Engine against chain:** 116,724 real swaps replayed across 355 pools and 50 kinds of config, 0 mismatches.
+- **Engine against the program itself:** 3,384 swaps simulated against the live program on 262 open pools, 2,601 of them exact-out (a swap nobody makes on mainnet, so no history can check it), 0 disagreements.
 - **Shelf:** 84 tapes: 24 DBC pools read from the chain and 60 pump.fun launches, picked from 561 that passed the fit check. Of 1,206 pump.fun launches recorded, 584 had under 12 orders and 61 failed the check.
 <!-- figures:end -->
 
@@ -41,7 +42,8 @@ Then it is held to the chain:
 - `node src/conformance.ts pick && node src/conformance.ts run` does that for pools spread over every combination of fee mode, fee token, activation type, first-swap setting and quote token in use on mainnet.
 - A pump.fun tape goes on the shelf only if a DBC config equal to pump.fun's curve returns the recorded number of tokens on every curve buy.
 - The deck does the same check live, in the browser, for any pool you paste. The browser build reads accounts and events from the IDL alone (no Anchor); it is tested against the SDK's Anchor coder on 160 real config accounts and 470 real events.
-- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes.
+- `node src/probe.ts run` asks the live program about swaps nobody has made (exact-out), by simulation, and compares its answers with the engine's. See below.
+- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes, and a spread of the simulated swaps.
 
 ## Check an SDK build against mainnet
 
@@ -60,7 +62,35 @@ Run on 11 October 2026:
 | SDK 2.0 branch: [PR #123](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/123) at `bdfe680`, #125 at `706bd11`, #126 at `ffde81d` | 116,724 each | 0 |
 | The 2.0 math with one lamport added to every exact-in output (a check that the check works) | stops early | flagged in 327 of 355 pools |
 
-What the corpus covers: 54,496 buys and 62,228 sells; 108,351 exact-in swaps and 8,373 partial fills (10 of them cut short at the migration price); 2,880 swaps with a referral; 220 swaps inside the pool-creation transaction; 81 curve completions; rate limiters, linear and exponential schedulers, the dynamic fee, fees in quote and in the output token, slot and timestamp activation. What it does not cover: exact-out swaps (none in these histories, and none among 6,376 swaps in a sample of the program's most recent transactions on 11 October, `src/hunt.ts`) and transfer-fee or transfer-hook tokens.
+What the corpus covers: 54,496 buys and 62,228 sells; 108,351 exact-in swaps and 8,373 partial fills (10 of them cut short at the migration price); 2,880 swaps with a referral; 220 swaps inside the pool-creation transaction; 81 curve completions; rate limiters, linear and exponential schedulers, the dynamic fee, fees in quote and in the output token, slot and timestamp activation. What it does not cover: exact-out swaps, which nobody makes (next section), and transfer-fee or transfer-hook tokens.
+
+### Swaps nobody has made
+
+Exact-out swaps are in the program and in the SDK, but there are none in those histories and none among 6,376 swaps in a sample of the program's most recent transactions (11 October, `src/hunt.ts`). History cannot check a swap nobody makes, so `src/probe.ts` asks the program itself. It builds the swap for a real open pool and has a public RPC node simulate it against the live program (`simulateTransaction` with signature checks off: nothing is signed, nothing is sent, there is no key). The trader in the simulation is a large exchange wallet standing in as payer, which any funded address can when signatures are not checked; nothing touches it. The program's own `EvtSwap2`, the pool account it leaves behind and the two vault balances are then compared with what the engine predicts from the pool account before.
+
+Run on 11 October 2026, 262 open pools quoted in SOL, 48 kinds of config, half of them pools nobody had traded yet:
+
+| Math | Simulated transactions | Swaps the program answered | Refusals | Disagreements |
+|---|---|---|---|---|
+| SDK 1.5.13 (npm) | 2,345 | 3,384, of them 2,601 exact-out | 265 | 0 |
+| SDK 2.0 branch at `bdfe680`, `706bd11` and `ffde81d` | the same 2,345 | the same | the same | 0 at each |
+| An exact-out quote one lamport too high (a check that the check works) | 1,558 with an exact-out swap | | | flagged in 1,558 |
+
+Each pool is asked nine things: a control (an exact-in buy and sell, which history already proves, so a mismatch there would be the harness); exact-out buys of 0.2%, 15%, 60% and 85% of what is left on the curve, each followed by an exact-out sell, half of them with a referral (1,042 swaps); one token unit; one lamport; the last token on the curve; and one token more than the curve holds.
+
+- **Every field agrees**: amount in, amount out, next price, trading, protocol and referral fee, and afterwards the pool account itself: reserves, every fee bucket, the volatility tracker.
+- **Refusals agree.** One token past the end of the curve is `InsufficientLiquidity` or `AmountLeftIsNotZero` in the program and an error in the SDK. Buying exactly what is left completes the curve in 247 pools; in the 6 where the program refuses it, the SDK refuses it too.
+- **The books match the vaults.** In all 2,080 transactions the program accepted, each vault's balance moved by exactly the change in the pool's reserve plus its fee buckets.
+- **Dust rounds toward the pool.** No swap was free of fee. One lamport buys nothing in 201 of 261 pools and is kept as fee.
+- **Fee schedules mid-run.** An old pool's schedule has run out, so 90 of the transactions went to 10 pools whose linear schedule was still running. No pool with a live rate limiter or an exponential schedule mid-run was found to ask.
+
+The simulations are saved as [`probes.jsonl.gz`](https://github.com/essej72/tapedeck/releases/latest) and check offline against any build of the SDK:
+
+```bash
+node src/probe.ts check --file probes.jsonl.gz --math data/sdk-math.mjs
+```
+
+Limits: pools quoted in SOL only, no transfer-fee or transfer-hook tokens, and a simulation is one node's run of the program at one slot, not a landed transaction.
 
 ## Run it
 

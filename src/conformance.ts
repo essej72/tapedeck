@@ -20,7 +20,7 @@ import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 import bs58 from "bs58";
-import { readConfig } from "./census/fields.ts";
+import { kindOf } from "./census/fields.ts";
 import { CENSUS_DB } from "./census/pull.ts";
 import { SDK_MATH, type QuoteMath } from "./engine/pool.ts";
 import { loadPool, openTapes, TX_RPC_URL } from "./flows/chain.ts";
@@ -28,18 +28,8 @@ import type { ChainTx } from "./flows/history.ts";
 import { RPC_URL } from "./rpc.ts";
 import { buildFixture, replayFixture } from "./validate.ts";
 
-const SOL = "So11111111111111111111111111111111111111112";
-const FEE_MODE = ["linear scheduler", "exponential scheduler", "rate limiter"];
 const SCHEMA = `CREATE TABLE IF NOT EXISTS conformance (pool TEXT PRIMARY KEY, kind TEXT, recent INTEGER, state TEXT, swaps INTEGER, mismatches INTEGER,
   final_checked INTEGER, note TEXT, checked REAL)`;
-
-function kindOf(data: Buffer): string {
-  const f = readConfig(data);
-  const fee = f.baseFeeMode === 2 ? "rate limiter" : f.startFeeBps === f.endFeeBps || f.feeDuration === 0 ? "flat fee" : FEE_MODE[f.baseFeeMode];
-  return [fee, f.dynamicFee ? "dynamic fee" : "", f.collectFeeMode ? "fee in output token" : "fee in quote", f.activationType ? "by timestamp" : "by slot", f.firstSwapMinFee ? "min-fee first swap" : "", f.quoteMint === SOL ? "SOL" : "other quote"]
-    .filter(Boolean)
-    .join(", ");
-}
 
 function pick(perKind: number): void {
   const census = new DatabaseSync(CENSUS_DB, { readOnly: true });

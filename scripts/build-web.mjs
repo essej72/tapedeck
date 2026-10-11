@@ -29,6 +29,7 @@ writeFileSync(join(out, ".nojekyll"), "");
 
 const load = (name) => (existsSync(join(root, "web/data", name)) ? JSON.parse(readFileSync(join(root, "web/data", name), "utf8")) : null);
 const [ev, conf, lib, pkg] = [load("evidence.json"), load("conformance.json"), load("tapes.json"), JSON.parse(readFileSync(join(root, "package.json"), "utf8"))];
+const probe = load("probe.json");
 const int = (x) => Math.round(x).toLocaleString("en-US");
 const pct = (x, d = 0) => `${(100 * x).toFixed(d)}%`;
 const kinds = lib?.pumpfun?.kinds ?? {};
@@ -81,6 +82,7 @@ const block = [
   `- **Where it costs 10% or more:** ${figures.dearShare} of ${figures.dearPools} pools did.`,
   `- **pump.fun, recorded ${figures.tapeDate}:** ${figures.soloGrads} of ${figures.grads} graduations that passed the check were one party buying the curve in the launch slot.`,
   `- **Engine against chain:** ${figures.confSwaps} real swaps replayed across ${figures.confPools} pools and ${figures.confKinds} kinds of config, ${figures.confMismatches} mismatches.`,
+  ...(probe?.simulations ? [`- **Engine against the program itself:** ${int(probe.swaps)} swaps simulated against the live program on ${int(probe.pools)} open pools, ${int(probe.exactOut)} of them exact-out (a swap nobody makes on mainnet, so no history can check it), ${int(probe.disagreements)} disagreements.`] : []),
   `- **Shelf:** ${figures.tapes} tapes: ${figures.dbcTapes} DBC pools read from the chain and ${figures.pumpTapes} pump.fun launches, picked from ${figures.pumpPassed} that passed the fit check. Of ${figures.pumpConsidered} pump.fun launches recorded, ${figures.pumpShort} had under 12 orders and ${figures.pumpMisfit} failed the check.`,
 ].join("\n");
 // And the findings that carry figures.

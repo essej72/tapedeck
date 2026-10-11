@@ -43,7 +43,10 @@ const raise = (d: DesignRow): string => `${d.threshold > 0 && d.threshold < 0.01
 const X_MIN = 0.001;
 const X_MAX = 2;
 
-export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib: Library | null): void {
+/** src/probe.ts: swaps simulated against the live program, because nobody has made them on mainnet. */
+export type ProbeSummary = { generatedAt: string; simulations: number; pools: number; kinds: number; swaps: number; exactOut: number; refusals: number; vaults: number; timed?: number; disagreements: number };
+
+export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib: Library | null, probe: ProbeSummary | null = null): void {
   if (ev) {
     const t = ev.totals;
     const covered = t.pools - t.poolsUnderUnknownConfigs;
@@ -171,6 +174,10 @@ export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib
       el("tbody", {}, ...conf.kinds.map((k) => el("tr", {}, el("td", {}, k.kind), el("td", {}, int(k.pools)), el("td", {}, int(k.swaps)), el("td", {}, int(k.mismatches))))),
     );
   } else $("conf-lede").textContent = "The conformance run is not part of this build. Run node src/conformance.ts pick, run and report.";
+
+  if (probe?.simulations) {
+    $("probe-lede").textContent = `History can only check the swaps people have made, and nobody makes exact-out swaps on mainnet. So the deck's engine was also checked against the program itself: ${int(probe.simulations)} transactions were built for ${int(probe.pools)} open pools (${int(probe.kinds)} kinds of config) and simulated by a public RPC node against the live program, with nothing signed or sent. The program answered ${int(probe.swaps)} swaps, ${int(probe.exactOut)} of them exact-out, with and without a referral, from one token unit up to the last token on the curve, and refused ${int(probe.refusals)} (one token more than the curve holds; in a few pools the last token itself). The engine gave the same answer every time: every field of every swap, the pool account left behind, and the same refusals. In ${int(probe.vaults)} of them the two vaults' balances were read too, and they moved by exactly what the pool's books say.${probe.timed ? ` ${int(probe.timed)} were asked while the pool's fee schedule was still running.` : ""} Disagreements: ${int(probe.disagreements)}.`;
+  } else $("probe-block").hidden = true;
 
   if (lib) {
     const pf = lib.pumpfun;

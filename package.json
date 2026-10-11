@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@meteora-ag/dynamic-bonding-curve-sdk": "1.5.13",
+    "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.98.0",
     "bn.js": "^5.2.1",
     "bs58": "^4.0.1",

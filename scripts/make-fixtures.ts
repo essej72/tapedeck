@@ -4,12 +4,14 @@
 //   configs.json        PoolConfig accounts of the most used designs
 //   pools/<pool>.json   whole on-chain histories of pools of different config kinds, with their accounts
 //   pumpfun/<mint>.json raw pump.fun trade tapes
+//   probes.jsonl        swaps simulated against the live program (src/probe.ts), every question for twelve pools
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import bs58 from "bs58";
 import { CENSUS_DB } from "../src/census/pull.ts";
 import { openTapes, TX_RPC_URL } from "../src/flows/chain.ts";
+import { sampleProbes } from "../src/probe.ts";
 import { buildFixture, replayFixture } from "../src/validate.ts";
 
 const out = new URL("../test/fixtures/", import.meta.url);
@@ -62,3 +64,8 @@ for (const kind of ["one-party buyout", "contested graduation", "died on the cur
   writeFileSync(new URL(`pumpfun/${t.id}.json`, out), JSON.stringify({ kind, meta, trades }));
   console.log(`  ${kind}: ${t.id} (${trades.length} trades)`);
 }
+
+// 4. simulated swaps: every question asked of one pool, for twelve kinds of config, from the last probe run
+const probes = sampleProbes(12);
+writeFileSync(new URL("probes.jsonl", out), probes.map((p) => `${JSON.stringify(p)}\n`).join(""));
+console.log(`${probes.length} simulated transactions`);

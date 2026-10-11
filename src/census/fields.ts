@@ -114,6 +114,18 @@ export function readConfig(d: Buffer): ConfigFields {
   };
 }
 
+const SOL = "So11111111111111111111111111111111111111112";
+const FEE_MODE = ["linear scheduler", "exponential scheduler", "rate limiter"];
+
+/** The settings that change the swap path, in words: base fee mode, dynamic fee, fee token, activation type, quote token. */
+export function kindOf(data: Buffer): string {
+  const f = readConfig(data);
+  const fee = f.baseFeeMode === 2 ? "rate limiter" : f.startFeeBps === f.endFeeBps || f.feeDuration === 0 ? "flat fee" : FEE_MODE[f.baseFeeMode];
+  return [fee, f.dynamicFee ? "dynamic fee" : "", f.collectFeeMode ? "fee in output token" : "fee in quote", f.activationType ? "by timestamp" : "by slot", f.firstSwapMinFee ? "min-fee first swap" : "", f.quoteMint === SOL ? "SOL" : "other quote"]
+    .filter(Boolean)
+    .join(", ");
+}
+
 /** Identical trading mechanics, whoever collects the fees: a hash of everything from pool_fees on, plus the quote mint. */
 export function designHash(d: Buffer): string {
   return createHash("sha1").update(d.subarray(o("quote_mint"), o("quote_mint") + 32)).update(d.subarray(o("pool_fees"))).digest("hex").slice(0, 16);
