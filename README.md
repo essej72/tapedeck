@@ -63,6 +63,17 @@ node scripts/bundle-sdk-math.mjs ../dynamic-bonding-curve-sdk/packages/dynamic-b
 node src/conformance.ts rerun --corpus corpus.jsonl.gz --math data/sdk-math.mjs
 ```
 
+The same check, with the simulated swaps of the next section, is a GitHub Action, so an SDK repository can hold every commit to mainnet without keeping the data:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: essej72/tapedeck@main
+  with:
+    sdk-path: packages/dynamic-bonding-curve
+```
+
+This repository runs it against the SDK as it stands upstream, its `main` branch and the 2.0 pull request, on every push: [![sdk](https://github.com/essej72/tapedeck/actions/workflows/sdk.yml/badge.svg)](https://github.com/essej72/tapedeck/actions/workflows/sdk.yml)
+
 Run on 11 October 2026:
 
 | Math | Swaps replayed | Mismatches |

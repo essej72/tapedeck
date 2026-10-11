@@ -658,6 +658,7 @@ async function check(file: string, mathPath?: string): Promise<void> {
   }
   for (const [label, [n, bad]] of byLabel) console.log(`  ${label.padEnd(30)} ${String(n).padStart(5)} asked ${String(bad).padStart(5)} disagree`);
   for (const e of examples) console.log(`  e.g. ${e}`);
+  if (tally.mismatched) process.exitCode = 1;
 }
 
 /** A spread of saved simulations for the offline tests: every question asked of one pool, for `pools` kinds of config. */

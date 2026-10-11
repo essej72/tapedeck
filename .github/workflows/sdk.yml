@@ -1,0 +1,31 @@
+# Meteora's DBC SDK as it stands upstream, held to mainnet with this repository's own action (action.yml):
+# the published branch and the 2.0 pull request, through the corpus and the simulated swaps.
+name: sdk
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: SDK ref to check instead (a branch, tag, commit or refs/pull/N/head)
+        required: false
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: ${{ fromJSON(inputs.ref && format('["{0}"]', inputs.ref) || '["main", "refs/pull/123/head"]') }}
+    name: ${{ matrix.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: MeteoraAg/dynamic-bonding-curve-sdk
+          ref: ${{ matrix.ref }}
+          path: sdk
+      - name: Which commit
+        run: git -C sdk log -1 --format='%h %ad %s' --date=short
+      - uses: ./
+        with:
+          sdk-path: sdk/packages/dynamic-bonding-curve
