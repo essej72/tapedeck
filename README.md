@@ -189,6 +189,10 @@ node src/conformance.ts pick        # pools of every kind of config
 node src/conformance.ts busy 250    # plus the busiest pools of the last day
 node src/conformance.ts run
 node src/conformance.ts report
+node src/migration.ts run           # the completed pools, followed into the pool they migrated to
+node src/migration.ts check --json web/data/migration.json
+node src/probe.ts run 2             # swaps nobody has made, simulated against the live program
+node src/probe.ts check
 
 node src/flows/dbc.ts pick 40       # recent busy DBC pools for the shelf
 node src/flows/dbc.ts fetch
