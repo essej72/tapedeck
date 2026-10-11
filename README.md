@@ -26,7 +26,7 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 - **Where it costs 10% or more:** 2.7% of 438,317 pools did.
 - **pump.fun, recorded 2026-10-10 to 2026-10-11:** 78 of 121 graduations that passed the check were one party buying the curve in the launch slot.
 - **Engine against chain:** 116,724 real swaps replayed across 355 pools and 50 kinds of config, 0 mismatches.
-- **Engine against the program itself:** 3,384 swaps simulated against the live program on 262 open pools, 2,601 of them exact-out (a swap nobody makes on mainnet, so no history can check it), 0 disagreements.
+- **Engine against the program itself:** 5,163 swaps simulated against the live program on 399 open pools, 3,969 of them exact-out (a swap nobody makes on mainnet, so no history can check it), 0 disagreements.
 - **Shelf:** 84 tapes: 24 DBC pools read from the chain and 60 pump.fun launches, picked from 561 that passed the fit check. Of 1,206 pump.fun launches recorded, 584 had under 12 orders and 61 failed the check.
 <!-- figures:end -->
 
@@ -71,21 +71,23 @@ What the corpus covers: 54,496 buys and 62,228 sells; 108,351 exact-in swaps and
 
 Exact-out swaps are in the program and in the SDK, but there are none in those histories and none among 6,376 swaps in a sample of the program's most recent transactions (11 October, `src/hunt.ts`). History cannot check a swap nobody makes, so `src/probe.ts` asks the program itself. It builds the swap for a real open pool and has a public RPC node simulate it against the live program (`simulateTransaction` with signature checks off: nothing is signed, nothing is sent, there is no key). The trader in the simulation is a large exchange wallet standing in as payer, which any funded address can when signatures are not checked; nothing touches it. The program's own `EvtSwap2`, the pool account it leaves behind and the two vault balances are then compared with what the engine predicts from the pool account before.
 
-Run on 11 October 2026, 262 open pools quoted in SOL, 48 kinds of config, half of them pools nobody had traded yet:
+<!-- probe:start -->
+Run on 2026-10-11: 399 open pools (262 quoted in SOL, 137 in USDC), 84 kinds of config, 204 of them pools nobody had traded yet.
 
 | Math | Simulated transactions | Swaps the program answered | Refusals | Disagreements |
 |---|---|---|---|---|
-| SDK 1.5.13 (npm) | 2,345 | 3,384, of them 2,601 exact-out | 265 | 0 |
-| SDK 2.0 branch at `bdfe680`, `706bd11` and `ffde81d` | the same 2,345 | the same | the same | 0 at each |
-| An exact-out quote one lamport too high (a check that the check works) | 1,558 with an exact-out swap | | | flagged in 1,558 |
+| SDK 1.5.13 (npm) | 3,578 | 5,163, of them 3,969 exact-out | 404 | 0 |
+| SDK 2.0 branch at `bdfe680`, `706bd11` and `ffde81d` | the same 3,578 | the same | the same | 0 at each |
+| An exact-out quote one lamport too high (a check that the check works) | 2,378 with an exact-out swap | | | flagged in 2,378 |
 
-Each pool is asked nine things: a control (an exact-in buy and sell, which history already proves, so a mismatch there would be the harness); exact-out buys of 0.2%, 15%, 60% and 85% of what is left on the curve, each followed by an exact-out sell, half of them with a referral (1,042 swaps); one token unit; one lamport; the last token on the curve; and one token more than the curve holds.
+Each pool is asked nine things: a control (an exact-in buy and sell, which history already proves, so a mismatch there would be the harness); exact-out buys of 0.2%, 15%, 60% and 85% of what is left on the curve, each followed by an exact-out sell, half of them with a referral (1,590 swaps); one token unit; one unit of the quote token; the last token on the curve; and one token more than the curve holds.
 
 - **Every field agrees**: amount in, amount out, next price, trading, protocol and referral fee, and afterwards the pool account itself: reserves, every fee bucket, the volatility tracker.
-- **Refusals agree.** One token past the end of the curve is `InsufficientLiquidity` or `AmountLeftIsNotZero` in the program and an error in the SDK. Buying exactly what is left completes the curve in 247 pools; in the 6 where the program refuses it, the SDK refuses it too.
-- **The books match the vaults.** In all 2,080 transactions the program accepted, each vault's balance moved by exactly the change in the pool's reserve plus its fee buckets.
-- **Dust rounds toward the pool.** No swap was free of fee. One lamport buys nothing in 201 of 261 pools and is kept as fee.
-- **Fee schedules mid-run.** An old pool's schedule has run out, so 90 of the transactions went to 10 pools whose linear schedule was still running. No pool with a live rate limiter or an exponential schedule mid-run was found to ask.
+- **Refusals agree.** One token past the end of the curve is `InsufficientLiquidity` or `AmountLeftIsNotZero` in the program and an error in the SDK (396 cases). Buying exactly what is left completes the curve in 382 pools; in the 8 where the program refuses it, the SDK refuses it too.
+- **The books match the vaults.** In all 3,174 transactions the program accepted, each vault's balance moved by exactly the change in the pool's reserve plus its fee buckets.
+- **Dust rounds toward the pool.** No swap was free of fee. One unit of the quote token buys nothing in 327 of 398 pools and is kept as fee.
+- **Fee schedules mid-run.** An old pool's schedule has run out, so 90 of the transactions went to 10 pools whose schedule was still running. No pool with a live rate limiter was found to ask.
+<!-- probe:end -->
 
 The simulations are saved as [`probes.jsonl.gz`](https://github.com/essej72/tapedeck/releases/latest) and check offline against any build of the SDK:
 
@@ -93,7 +95,7 @@ The simulations are saved as [`probes.jsonl.gz`](https://github.com/essej72/tape
 node src/probe.ts check --file probes.jsonl.gz --math data/sdk-math.mjs
 ```
 
-Limits: pools quoted in SOL only, no transfer-fee or transfer-hook tokens, and a simulation is one node's run of the program at one slot, not a landed transaction.
+Limits: pools quoted in SOL or USDC only, no transfer-fee or transfer-hook tokens, and a simulation is one node's run of the program at one slot, not a landed transaction.
 
 ## From the deck to mainnet
 

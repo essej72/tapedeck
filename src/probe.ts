@@ -7,7 +7,7 @@
 // EvtSwap2 and the pool account it leaves behind with what the engine predicts from the pool account before.
 // Every simulation is saved, so the comparison can be run again offline against another build of the SDK.
 //
-//   node src/probe.ts run [poolsPerKind]             # simulate against open pools spread over kinds of config
+//   node src/probe.ts run [poolsPerKind] [sol|usdc]  # simulate against open pools spread over kinds of config
 //   node src/probe.ts pool <address>...              # the pools named
 //   node src/probe.ts fresh [minutes]                # watch for new pools and ask those whose fee schedule or rate
 //                                                    # limiter is still running (an old pool's has run out)
@@ -41,6 +41,9 @@ import { Rpc, RPC_URL } from "./rpc.ts";
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 export const PROBES = resolve(ROOT, "data/probes.jsonl");
 const SOL = NATIVE_MINT.toBase58();
+const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+/** What the stand-in trader holds: lamports, and USDC in its associated token account. */
+type Funds = { lamports: number; usdc: number };
 const LAMPORTS = 1_000_000_000;
 
 type Step = { direction: TradeDirection; mode: SwapMode; amount0: string; amount1: string; referral: boolean };
@@ -178,7 +181,7 @@ const { program } = createDbcProgram(new Connection(RPC_URL));
 const POOL_AUTHORITY = deriveDbcPoolAuthority();
 // Receives referral fees in the simulation. Any address will do; this one is nobody's.
 const REFERRER = new PublicKey(Buffer.alloc(32, 7));
-// The simulated trader has to hold SOL. With signature checks off any funded address can stand in, so these are
+// The simulated trader has to hold SOL (and USDC, for pools quoted in it). With signature checks off any funded address can stand in, so these are
 // large exchange wallets; the first that is a plain system account with enough SOL is used. Nothing touches them.
 const PAYERS = ["5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS", "GJRs4FwHtemZ5ZE9x3FNvJ8TMwitKTh21yxdRPqn7npE"];
 
@@ -194,10 +197,13 @@ async function accountOf(rpc: Rpc, address: string): Promise<Account> {
   return (await rpc.call<{ value: Account }>("getAccountInfo", [address, { encoding: "base64", commitment: "confirmed" }])).value;
 }
 
-async function findPayer(rpc: Rpc): Promise<{ payer: PublicKey; lamports: number }> {
+async function findPayer(rpc: Rpc): Promise<{ payer: PublicKey; funds: Funds }> {
   for (const a of PAYERS) {
     const acc = await accountOf(rpc, a);
-    if (acc && acc.owner === SystemProgram.programId.toBase58() && bytes(acc.data[0]).length === 0 && acc.lamports > 2000 * LAMPORTS) return { payer: new PublicKey(a), lamports: acc.lamports };
+    if (!acc || acc.owner !== SystemProgram.programId.toBase58() || bytes(acc.data[0]).length !== 0 || acc.lamports < 2000 * LAMPORTS) continue;
+    const payer = new PublicKey(a);
+    const usdc = await accountOf(rpc, getAssociatedTokenAddressSync(new PublicKey(USDC), payer, true).toBase58());
+    return { payer, funds: { lamports: acc.lamports, usdc: usdc ? Number(bytes(usdc.data[0]).readBigUInt64LE(64)) : 0 } };
   }
   throw new Error("none of the stand-in payers is a system account with 2,000 SOL; edit PAYERS");
 }
@@ -271,12 +277,13 @@ async function transactionFor(t: Target, steps: Step[], wrap: BN, payer: PublicK
   const config = configFromBytes(bytes(t.configData));
   const baseProgram = pool.poolType === 1 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
   const ata = (mint: PublicKey, owner: PublicKey, tokenProgram: PublicKey) => getAssociatedTokenAddressSync(mint, owner, true, tokenProgram);
-  const [quoteAta, baseAta] = [ata(NATIVE_MINT, payer, TOKEN_PROGRAM_ID), ata(pool.baseMint, payer, baseProgram)];
+  const quoteMint = new PublicKey(config.quoteMintAddress);
+  const native = quoteMint.equals(NATIVE_MINT);
+  const [quoteAta, baseAta] = [ata(quoteMint, payer, TOKEN_PROGRAM_ID), ata(pool.baseMint, payer, baseProgram)];
   const ixs: TransactionInstruction[] = [
     ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
-    createAssociatedTokenAccountIdempotentInstruction(payer, quoteAta, payer, NATIVE_MINT),
-    SystemProgram.transfer({ fromPubkey: payer, toPubkey: quoteAta, lamports: BigInt(wrap.toString()) }),
-    createSyncNativeInstruction(quoteAta),
+    // SOL has to be wrapped first; USDC is spent from the token account the stand-in already has.
+    ...(native ? [createAssociatedTokenAccountIdempotentInstruction(payer, quoteAta, payer, NATIVE_MINT), SystemProgram.transfer({ fromPubkey: payer, toPubkey: quoteAta, lamports: BigInt(wrap.toString()) }), createSyncNativeInstruction(quoteAta)] : []),
     createAssociatedTokenAccountIdempotentInstruction(payer, baseAta, payer, pool.baseMint, baseProgram),
   ];
   const referrals = new Map<string, PublicKey>();
@@ -286,7 +293,7 @@ async function transactionFor(t: Target, steps: Step[], wrap: BN, payer: PublicK
     if (s.referral) {
       // The referral is paid in the fee token: base only when the fee is taken from the output of a buy.
       const inBase = config.collectFeeMode === 1 && buy;
-      const [mint, tokenProgram] = inBase ? [pool.baseMint, baseProgram] : [NATIVE_MINT, TOKEN_PROGRAM_ID];
+      const [mint, tokenProgram] = inBase ? [pool.baseMint, baseProgram] : [quoteMint, TOKEN_PROGRAM_ID];
       referral = ata(mint, REFERRER, tokenProgram);
       if (!referrals.has(referral.toBase58())) {
         referrals.set(referral.toBase58(), referral);
@@ -305,7 +312,7 @@ async function transactionFor(t: Target, steps: Step[], wrap: BN, payer: PublicK
           baseVault: pool.baseVault,
           quoteVault: pool.quoteVault,
           baseMint: pool.baseMint,
-          quoteMint: NATIVE_MINT,
+          quoteMint,
           payer,
           tokenBaseProgram: baseProgram,
           tokenQuoteProgram: TOKEN_PROGRAM_ID,
@@ -380,7 +387,7 @@ async function ask(rpc: Rpc, t: Target, plan: { label: string; steps: Step[]; wr
  * Ask every plan for one pool. The pool must not change while we ask, or the answers are about another state: a
  * quiet pool is read before and after the whole set; a busy one (`busy`) before and after every single question.
  */
-async function probePool(rpc: Rpc, pool: string, kind: string, payer: PublicKey, payerLamports: number, tally: Tally, busy = false): Promise<void> {
+async function probePool(rpc: Rpc, pool: string, kind: string, payer: PublicKey, funds: Funds, tally: Tally, busy = false): Promise<void> {
   let snap = await snapshot(rpc, pool);
   if (!snap) return;
   const first = snap.pool;
@@ -390,8 +397,11 @@ async function probePool(rpc: Rpc, pool: string, kind: string, payer: PublicKey,
   kind ||= kindOf(bytes(configAcc.data[0]));
   const t: Target = { pool, kind, config: live.config.toBase58(), configData: configAcc.data[0], pre: first };
   const config = configFromBytes(bytes(t.configData));
-  if (config.quoteMintAddress !== SOL || live.isMigrated || live.migrationProgress !== 0 || live.poolType > 1) {
-    console.log(`  ${pool.slice(0, 8)} left out: ${config.quoteMintAddress !== SOL ? "not quoted in SOL" : live.poolType > 1 ? "transfer-hook pool" : "its curve is finished"}`);
+  const quoted = config.quoteMintAddress === SOL ? "SOL" : config.quoteMintAddress === USDC ? "USDC" : null;
+  const budget = quoted === "USDC" ? funds.usdc : funds.lamports;
+  t.kind = kind = kind.replace("other quote", quoted ?? "other quote");
+  if (!quoted || live.isMigrated || live.migrationProgress !== 0 || live.poolType > 1) {
+    console.log(`  ${pool.slice(0, 8)} left out: ${!quoted ? "quoted in neither SOL nor USDC" : live.poolType > 1 ? "transfer-hook pool" : "its curve is finished"}`);
     return;
   }
   const slot0 = await rpc.call<number>("getSlot", [{ commitment: "confirmed" }]);
@@ -400,7 +410,7 @@ async function probePool(rpc: Rpc, pool: string, kind: string, payer: PublicKey,
   const planned = (pre: string) => {
     const now = Math.floor(Date.now() / 1000);
     const slot = slot0 + Math.round((Date.now() - t0) / 400);
-    const all = plans({ ...t, pre }, { point: new BN(config.activationType === 0 ? slot : now), timestamp: new BN(now) }).filter((p) => p.wrap.lt(new BN(String(Math.floor(payerLamports / 2)))));
+    const all = plans({ ...t, pre }, { point: new BN(config.activationType === 0 ? slot : now), timestamp: new BN(now) }).filter((p) => p.wrap.lt(new BN(String(Math.floor(budget / 2)))));
     return { all, about: { slot, timestamp: now } };
   };
   const labels = planned(first).all.map((p) => p.label);
@@ -476,15 +486,18 @@ class Tally {
   }
 }
 
-/** Open SOL-quoted pools from the census, spread over kinds of config. */
-function pickPools(perKind: number): { pool: string; kind: string }[] {
+/** Open pools from the census quoted in the given token, spread over kinds of config. */
+function pickPools(perKind: number, quoteMint: string): { pool: string; kind: string }[] {
   const census = new DatabaseSync(CENSUS_DB, { readOnly: true });
   const kinds = new Map<string, string>();
-  for (const r of census.prepare("SELECT address, data FROM configs").iterate()) kinds.set(Buffer.from(r.address as Uint8Array).toString("hex"), kindOf(Buffer.from(r.data as Uint8Array)));
+  for (const r of census.prepare("SELECT address, data FROM configs").iterate()) {
+    const data = Buffer.from(r.data as Uint8Array);
+    if (readConfig(data).quoteMint === quoteMint) kinds.set(Buffer.from(r.address as Uint8Array).toString("hex"), kindOf(data));
+  }
   const chosen = new Map<string, { pool: string; weight: number }[]>();
   for (const p of census.prepare("SELECT address, config, has_swap FROM pools WHERE migration_progress = 0 AND is_migrated = 0 AND pool_type < 2").iterate()) {
     const kind = kinds.get(Buffer.from(p.config as Uint8Array).toString("hex"));
-    if (!kind || !kind.endsWith("SOL")) continue;
+    if (!kind) continue;
     // Half the picks from pools that have traded, half from pools nobody has touched (a first swap).
     const key = `${kind}|${p.has_swap ? "traded" : "untouched"}`;
     const list = chosen.get(key) ?? [];
@@ -500,16 +513,16 @@ function pickPools(perKind: number): { pool: string; kind: string }[] {
   return [...chosen].flatMap(([key, list]) => list.map((c) => ({ pool: c.pool, kind: key.split("|")[0] })));
 }
 
-async function run(perKind: number): Promise<void> {
+async function run(perKind: number, quote: "sol" | "usdc"): Promise<void> {
   mkdirSync(dirname(PROBES), { recursive: true });
   const rpc = new Rpc(RPC_URL, 450);
-  const { payer, lamports } = await findPayer(rpc);
-  const pools = pickPools(perKind);
-  console.log(`${pools.length} open pools picked; simulated trader ${payer.toBase58().slice(0, 8)} (${Math.round(lamports / LAMPORTS)} SOL, untouched)`);
+  const { payer, funds } = await findPayer(rpc);
+  const pools = pickPools(perKind, quote === "usdc" ? USDC : SOL);
+  console.log(`${pools.length} open pools quoted in ${quote.toUpperCase()} picked; simulated trader ${payer.toBase58().slice(0, 8)} (${Math.round(funds.lamports / LAMPORTS)} SOL, ${Math.round(funds.usdc / 1e6)} USDC, untouched)`);
   const tally = new Tally();
   for (const { pool, kind } of pools) {
     try {
-      await probePool(rpc, pool, kind, payer, lamports, tally);
+      await probePool(rpc, pool, kind, payer, funds, tally);
     } catch (e) {
       console.log(`  ${pool.slice(0, 8)} failed: ${(e as Error).message.slice(0, 160)}`);
     }
@@ -534,7 +547,7 @@ async function fresh(minutes: number): Promise<void> {
   mkdirSync(dirname(PROBES), { recursive: true });
   const rpc = new Rpc(RPC_URL, 450);
   const feed = new Rpc(process.env.TX_RPC_URL ?? "https://solana-rpc.publicnode.com", 200);
-  const { payer, lamports } = await findPayer(rpc);
+  const { payer, funds } = await findPayer(rpc);
   const tally = new Tally();
   const seen = new Set<string>();
   const configs = new Map<string, Buffer | null>();
@@ -567,7 +580,7 @@ async function fresh(minutes: number): Promise<void> {
       c.asked++;
       c.next = Date.now() + 60_000;
       try {
-        await probePool(rpc, c.pool, c.kind, payer, lamports, tally, true);
+        await probePool(rpc, c.pool, c.kind, payer, funds, tally, true);
       } catch (err) {
         console.log(`  ${c.pool.slice(0, 8)} failed: ${(err as Error).message.slice(0, 160)}`);
       }
@@ -598,8 +611,40 @@ async function check(file: string, mathPath?: string): Promise<void> {
   console.log(`math: ${mathPath ?? "the installed SDK"}   simulations: ${file}`);
   console.log(tally.line());
   if (!mathPath && file === PROBES) {
-    // The Evidence page's paragraph.
-    const summary = { generatedAt: new Date().toISOString(), simulations: tally.probes, pools: tally.pools.size, kinds: tally.kinds.size, swaps: tally.swaps, exactOut: tally.exactOut, refusals: tally.refused, vaults: tally.vaults, timed: tally.timed, disagreements: tally.mismatched };
+    // Every figure the site and the README quote, counted here and nowhere else.
+    const all = readProbes(file);
+    const events = (p: Probe) => p.events as unknown as (SwapEvent & { migrationThreshold: string })[];
+    const withOut = all.filter((p) => events(p).some((e) => e.swapParameters.swapMode === SwapMode.ExactOut));
+    const off: QuoteMath = { ...SDK_MATH, getSwapResultFromExactOutput: (...a) => ({ ...SDK_MATH.getSwapResultFromExactOutput(...a), includedFeeInputAmount: SDK_MATH.getSwapResultFromExactOutput(...a).includedFeeInputAmount.addn(1) }) };
+    const last = all.filter((p) => p.label === "exact-out, all that is left");
+    const lamport = all.filter((p) => p.label === "exact-in, one lamport" && p.events.length);
+    const timedPools = new Set(all.filter((p) => scheduleRunning(bytes(p.configData), Number(decodePool(bytes(p.pre)).poolState.activationPoint), readConfig(bytes(p.configData)).activationType === 0 ? p.slot : p.timestamp)).map((p) => p.pool));
+    const quoteOf = (p: Probe) => (readConfig(bytes(p.configData)).quoteMint === USDC ? "usdc" : "sol");
+    const summary = {
+      generatedAt: new Date().toISOString(),
+      simulations: tally.probes,
+      pools: tally.pools.size,
+      solPools: new Set(all.filter((p) => quoteOf(p) === "sol").map((p) => p.pool)).size,
+      usdcPools: new Set(all.filter((p) => quoteOf(p) === "usdc").map((p) => p.pool)).size,
+      untouchedPools: new Set(all.filter((p) => decodePool(bytes(p.pre)).poolState.hasSwap === 0).map((p) => p.pool)).size,
+      kinds: tally.kinds.size,
+      swaps: tally.swaps,
+      exactOut: tally.exactOut,
+      referral: all.reduce((n, p) => n + events(p).filter((e) => e.hasReferral).length, 0),
+      refusals: tally.refused,
+      pastTheEnd: all.filter((p) => p.label === "exact-out, one past the end" && p.refusedAt !== null).length,
+      lastRefused: last.filter((p) => p.refusedAt !== null).length,
+      completions: last.filter((p) => events(p).some((e) => BigInt(e.quoteReserveAmount) >= BigInt(e.migrationThreshold))).length,
+      lamportBuys: lamport.length,
+      lamportBuysNothing: lamport.filter((p) => events(p)[0].swapResult.outputAmount === "0").length,
+      feeFree: all.reduce((n, p) => n + events(p).filter((e) => BigInt(e.swapResult.tradingFee) + BigInt(e.swapResult.protocolFee) + BigInt(e.swapResult.referralFee) === 0n).length, 0),
+      vaults: tally.vaults,
+      timed: tally.timed,
+      timedPools: timedPools.size,
+      offByOneCaught: withOut.filter((p) => checkProbe(p, off).length).length,
+      offByOneOf: withOut.length,
+      disagreements: tally.mismatched,
+    };
     writeFileSync(resolve(ROOT, "web/data/probe.json"), JSON.stringify(summary));
   }
   for (const [label, [n, bad]] of byLabel) console.log(`  ${label.padEnd(30)} ${String(n).padStart(5)} asked ${String(bad).padStart(5)} disagree`);
@@ -626,12 +671,12 @@ if (import.meta.main) {
     const i = process.argv.indexOf(name);
     return i > 0 ? process.argv[i + 1] : undefined;
   };
-  if (cmd === "run") await run(Number(arg) || 2);
+  if (cmd === "run") await run(Number(arg) || 2, process.argv[4] === "usdc" ? "usdc" : "sol");
   else if (cmd === "pool" && arg) {
     const rpc = new Rpc(RPC_URL, 450);
-    const { payer, lamports } = await findPayer(rpc);
+    const { payer, funds } = await findPayer(rpc);
     const tally = new Tally();
-    for (const pool of process.argv.slice(3)) await probePool(rpc, pool, "", payer, lamports, tally);
+    for (const pool of process.argv.slice(3)) await probePool(rpc, pool, "", payer, funds, tally);
     console.log(tally.line());
   }
   else if (cmd === "fresh") await fresh(Number(arg) || 20);
@@ -641,5 +686,5 @@ if (import.meta.main) {
     writeFileSync(arg, picked.map((p) => `${JSON.stringify(p)}\n`).join(""));
     console.log(`${picked.length} simulations -> ${arg}`);
   }
-  else console.log("usage: node src/probe.ts run [poolsPerKind] | pool <address>... | fresh [minutes] | check [--file f] [--math module.mjs] | sample <out.jsonl> [n]");
+  else console.log("usage: node src/probe.ts run [poolsPerKind] [sol|usdc] | pool <address>... | fresh [minutes] | check [--file f] [--math module.mjs] | sample <out.jsonl> [n]");
 }

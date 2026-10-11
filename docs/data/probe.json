@@ -1,1 +1,1 @@
-{"generatedAt":"2026-10-11T02:52:45.094Z","simulations":2345,"pools":262,"kinds":48,"swaps":3384,"exactOut":2601,"refusals":265,"vaults":2080,"timed":90,"disagreements":0}
+{"generatedAt":"2026-10-11T05:28:17.053Z","simulations":3578,"pools":399,"solPools":262,"usdcPools":137,"untouchedPools":204,"kinds":84,"swaps":5163,"exactOut":3969,"referral":1590,"refusals":404,"pastTheEnd":396,"lastRefused":8,"completions":382,"lamportBuys":398,"lamportBuysNothing":327,"feeFree":0,"vaults":3174,"timed":90,"timedPools":10,"offByOneCaught":2378,"offByOneOf":2378,"disagreements":0}

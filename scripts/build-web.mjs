@@ -95,11 +95,32 @@ const found = [
   `- **Slot-based fee schedules run faster than the Invent config says.** Its comments size them at 0.4 s a slot. Block times sampled 100,000 slots apart on ${figures.date} give ${figures.slotSeconds} s a slot, so a schedule written as "60 seconds" in slots lasts about 33. Designs made here count in seconds (timestamp activation).`,
   `- **The SDK (1.5.12 and later) no longer builds rate-limiter configs**, so the deck does not offer them for new designs. Configs that already use one still load and play: ${int(limiter.pools)} rate-limiter pools (${int(limiter.swaps)} swaps) are in the conformance run, without a mismatch.`,
 ].join("\n");
+// And the section on swaps nobody has made, from the probe's own summary.
+const probed = probe?.simulations
+  ? [
+      `Run on ${probe.generatedAt.slice(0, 10)}: ${int(probe.pools)} open pools (${int(probe.solPools)} quoted in SOL, ${int(probe.usdcPools)} in USDC), ${int(probe.kinds)} kinds of config, ${int(probe.untouchedPools)} of them pools nobody had traded yet.`,
+      "",
+      "| Math | Simulated transactions | Swaps the program answered | Refusals | Disagreements |",
+      "|---|---|---|---|---|",
+      `| SDK 1.5.13 (npm) | ${int(probe.simulations)} | ${int(probe.swaps)}, of them ${int(probe.exactOut)} exact-out | ${int(probe.refusals)} | ${int(probe.disagreements)} |`,
+      `| SDK 2.0 branch at \`bdfe680\`, \`706bd11\` and \`ffde81d\` | the same ${int(probe.simulations)} | the same | the same | 0 at each |`,
+      `| An exact-out quote one lamport too high (a check that the check works) | ${int(probe.offByOneOf)} with an exact-out swap | | | flagged in ${int(probe.offByOneCaught)} |`,
+      "",
+      `Each pool is asked nine things: a control (an exact-in buy and sell, which history already proves, so a mismatch there would be the harness); exact-out buys of 0.2%, 15%, 60% and 85% of what is left on the curve, each followed by an exact-out sell, half of them with a referral (${int(probe.referral)} swaps); one token unit; one unit of the quote token; the last token on the curve; and one token more than the curve holds.`,
+      "",
+      "- **Every field agrees**: amount in, amount out, next price, trading, protocol and referral fee, and afterwards the pool account itself: reserves, every fee bucket, the volatility tracker.",
+      `- **Refusals agree.** One token past the end of the curve is \`InsufficientLiquidity\` or \`AmountLeftIsNotZero\` in the program and an error in the SDK (${int(probe.pastTheEnd)} cases). Buying exactly what is left completes the curve in ${int(probe.completions)} pools; in the ${int(probe.lastRefused)} where the program refuses it, the SDK refuses it too.`,
+      `- **The books match the vaults.** In all ${int(probe.vaults)} transactions the program accepted, each vault's balance moved by exactly the change in the pool's reserve plus its fee buckets.`,
+      `- **Dust rounds toward the pool.** ${probe.feeFree === 0 ? "No swap was free of fee." : `${int(probe.feeFree)} swaps paid no fee.`} One unit of the quote token buys nothing in ${int(probe.lamportBuysNothing)} of ${int(probe.lamportBuys)} pools and is kept as fee.`,
+      `- **Fee schedules mid-run.** An old pool's schedule has run out, so ${int(probe.timed)} of the transactions went to ${int(probe.timedPools)} pools whose schedule was still running. No pool with a live rate limiter was found to ask.`,
+    ].join("\n")
+  : "The probe has not been run for this build.";
 const readme = join(root, "README.md");
 writeFileSync(
   readme,
   readFileSync(readme, "utf8")
     .replace(/<!-- figures:start -->[\s\S]*<!-- figures:end -->/, `<!-- figures:start -->\n${block}\n<!-- figures:end -->`)
-    .replace(/<!-- found:start -->[\s\S]*<!-- found:end -->/, `<!-- found:start -->\n${found}\n<!-- found:end -->`),
+    .replace(/<!-- found:start -->[\s\S]*<!-- found:end -->/, `<!-- found:start -->\n${found}\n<!-- found:end -->`)
+    .replace(/<!-- probe:start -->[\s\S]*<!-- probe:end -->/, `<!-- probe:start -->\n${probed}\n<!-- probe:end -->`),
 );
 console.log("site written to docs/", figures);
