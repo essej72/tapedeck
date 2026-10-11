@@ -42,7 +42,7 @@ export class Rpc {
         const body = (await res.json()) as { result?: T; error?: { code: number; message: string } };
         if (body.error) {
           // -32005 node behind / rate limited, -32603 internal: worth another try. Anything else is our mistake.
-          if ([-32005, -32603, -32004, -32014, -32016].includes(body.error.code)) {
+          if ([-32005, -32603, -32004, -32014, -32016, -32019].includes(body.error.code)) {
             lastErr = body.error.message;
             this.next = Date.now() + 1500 * 2 ** attempt;
             continue;

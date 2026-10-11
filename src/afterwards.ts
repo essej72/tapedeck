@@ -185,11 +185,36 @@ if (args[0] === "run") {
       reached = sigs.length < 1000;
       before = sigs[sigs.length - 1]?.signature;
     }
+    let wanted = [m.sig, ...later.reverse().slice(0, perPool)];
     if (!reached) {
-      console.log(`${m.pool.slice(0, 8)} busier than ${maxPages},000 transactions since migration: left out (MAX_PAGES raises the limit)`);
-      continue;
+      // Too busy to page back through. Its first transactions are in the blocks straight after the migration: read
+      // those and keep, in block order, the ones that name the pool.
+      const found: string[] = [];
+      let seenMigration = false;
+      for (let slot = m.slot!; slot < m.slot! + 600 && found.length < perPool; slot++) {
+        let block: { transactions: { transaction: { signatures: string[]; message: { accountKeys: string[] } }; meta: { err: unknown; loadedAddresses?: { writable: string[]; readonly: string[] } } | null }[] } | null = null;
+        try {
+          block = await rpc.call("getBlock", [slot, { encoding: "json", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 1 }]);
+        } catch (e) {
+          if (!/skipped|not available|-32007|-32009/i.test(String(e))) throw e; // a slot without a block
+        }
+        for (const t of block?.transactions ?? []) {
+          const sig = t.transaction.signatures[0];
+          if (sig === m.sig) {
+            seenMigration = true;
+            continue;
+          }
+          if (!seenMigration || t.meta?.err) continue;
+          const keys = [...t.transaction.message.accountKeys, ...(t.meta?.loadedAddresses?.writable ?? []), ...(t.meta?.loadedAddresses?.readonly ?? [])];
+          if (keys.includes(m.damm.pool) && found.length < perPool) found.push(sig);
+        }
+      }
+      if (!seenMigration || !found.length) {
+        console.log(`${m.pool.slice(0, 8)} busier than ${maxPages},000 transactions since migration, and not found in the blocks after it: left out`);
+        continue;
+      }
+      wanted = [m.sig, ...found];
     }
-    const wanted = [m.sig, ...later.reverse().slice(0, perPool)];
     const after: After[] = [];
     for (const sig of wanted) {
       const tx = await rpc.call<RawTx | null>("getTransaction", [sig, { maxSupportedTransactionVersion: 1, encoding: "json" }]);
