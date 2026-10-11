@@ -178,8 +178,8 @@ export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib
     const grads = (k["one-party buyout"] ?? 0) + (k["contested graduation"] ?? 0);
     const worst = Math.max(...lib.tapes.filter((t) => !t.config).map((t) => t.fit[1]), 0.0001);
     $("tape-lede").replaceChildren(
-      `pump.fun: ${int(pf.considered)} launches were recorded wallet by wallet from pump.fun's public trade feed. A tape is kept only if the engine reproduces it: flown through a DBC config equal to pump.fun's curve, each curve buy must return the recorded number of tokens. ${int(pf.passed)} passed; on the worst tape on the shelf nine buys in ten are within ${pct(worst, 2)}. `,
-      el("b", {}, grads ? `Of the ${int(grads)} graduations among them, ${int(k["one-party buyout"] ?? 0)} were one-party buyouts: at least 90% of the curve bought inside the launch slot.` : ""),
+      `pump.fun: ${int(pf.considered)} launches were recorded wallet by wallet from pump.fun's public trade feed (${pf.recordedFrom === pf.recordedTo ? pf.recordedTo : `${pf.recordedFrom} to ${pf.recordedTo}`}). ${int(pf.tooShort)} had under 12 orders and are not worth playing. The rest are kept only if the engine reproduces them: flown through a DBC config equal to pump.fun's curve, each curve buy must return the recorded number of tokens. ${int(pf.passed)} passed and ${int(pf.misfit)} did not; on the worst tape on the shelf nine buys in ten are within ${pct(worst, 2)}. `,
+      el("b", {}, grads ? `Of the ${int(grads)} graduations that passed, ${int(k["one-party buyout"] ?? 0)} were one-party buyouts: at least 90% of the curve bought inside the launch slot.` : ""),
       lib.dbc.passed ? ` Meteora DBC: ${int(lib.dbc.passed)} pools were recorded from the chain and kept only because their whole history, ${int(lib.dbc.swaps)} swaps, replays without a mismatch. Side A for those tapes is the pool's own config.` : "",
     );
   }

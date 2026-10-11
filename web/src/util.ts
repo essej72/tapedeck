@@ -48,7 +48,7 @@ export type PackedTape = {
 };
 export type Library = {
   slotSeconds: number;
-  pumpfun: { considered: number; passed: number; kinds: Record<string, number> };
+  pumpfun: { considered: number; passed: number; tooShort: number; misfit: number; recordedFrom: string; recordedTo: string; kinds: Record<string, number> };
   dbc: { passed: number; kinds: Record<string, number>; swaps: number };
   tapes: PackedTape[];
 };

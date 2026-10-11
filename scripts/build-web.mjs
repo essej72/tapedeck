@@ -55,7 +55,10 @@ const figures = {
   soloGrads: int(kinds["one-party buyout"] ?? 0),
   grads: int((kinds["one-party buyout"] ?? 0) + (kinds["contested graduation"] ?? 0)),
   slotSeconds: String(lib?.slotSeconds ?? 0.219),
-  tapeDate: (lib?.generatedAt ?? new Date().toISOString()).slice(0, 10),
+  tapeDate: lib?.pumpfun.recordedFrom === lib?.pumpfun.recordedTo ? (lib?.pumpfun.recordedTo ?? "") : `${lib.pumpfun.recordedFrom} to ${lib.pumpfun.recordedTo}`,
+  pumpShort: int(lib?.pumpfun.tooShort ?? 0),
+  pumpMisfit: int(lib?.pumpfun.misfit ?? 0),
+  pumpPassed: int(lib?.pumpfun.passed ?? 0),
   splitConfigs: int(ev?.totals.configsWhereClaimerIsNotReceiver ?? 0),
   splitShare: ev?.totals.configs ? pct((ev.totals.configsWhereClaimerIsNotReceiver ?? 0) / ev.totals.configs) : "n/a",
 };
@@ -76,9 +79,9 @@ const block = [
   `- **Census:** ${figures.pools} pools under ${figures.configs} configs, read from program accounts on ${figures.date}.`,
   `- **Where faking a graduation costs under 2% of the raise:** ${figures.cheapShare} of ${figures.cheapPools} pools completed their curve.`,
   `- **Where it costs 10% or more:** ${figures.dearShare} of ${figures.dearPools} pools did.`,
-  `- **pump.fun, recorded ${figures.tapeDate}:** ${figures.soloGrads} of ${figures.grads} graduations were one party buying the curve in the launch slot.`,
+  `- **pump.fun, recorded ${figures.tapeDate}:** ${figures.soloGrads} of ${figures.grads} graduations that passed the check were one party buying the curve in the launch slot.`,
   `- **Engine against chain:** ${figures.confSwaps} real swaps replayed across ${figures.confPools} pools and ${figures.confKinds} kinds of config, ${figures.confMismatches} mismatches.`,
-  `- **Shelf:** ${figures.tapes} tapes: ${figures.dbcTapes} DBC pools read from the chain, ${figures.pumpTapes} pump.fun launches (${figures.pumpRejected} of ${figures.pumpConsidered} recorded were left out by the fit check or for being too short).`,
+  `- **Shelf:** ${figures.tapes} tapes: ${figures.dbcTapes} DBC pools read from the chain and ${figures.pumpTapes} pump.fun launches, picked from ${figures.pumpPassed} that passed the fit check. Of ${figures.pumpConsidered} pump.fun launches recorded, ${figures.pumpShort} had under 12 orders and ${figures.pumpMisfit} failed the check.`,
 ].join("\n");
 // And the findings that carry figures.
 const found = [

@@ -21,9 +21,9 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 - **Census:** 1,768,464 pools under 543,738 configs, read from program accounts on 2026-10-10.
 - **Where faking a graduation costs under 2% of the raise:** 84% of 1,131,326 pools completed their curve.
 - **Where it costs 10% or more:** 2.7% of 438,317 pools did.
-- **pump.fun, recorded 2026-10-10:** 39 of 50 graduations were one party buying the curve in the launch slot.
-- **Engine against chain:** 29,426 real swaps replayed across 196 pools and 50 kinds of config, 0 mismatches.
-- **Shelf:** 57 tapes: 13 DBC pools read from the chain, 44 pump.fun launches (174 of 332 recorded were left out by the fit check or for being too short).
+- **pump.fun, recorded 2026-10-10 to 2026-10-11:** 77 of 119 graduations that passed the check were one party buying the curve in the launch slot.
+- **Engine against chain:** 107,341 real swaps replayed across 341 pools and 50 kinds of config, 0 mismatches.
+- **Shelf:** 73 tapes: 13 DBC pools read from the chain and 60 pump.fun launches, picked from 530 that passed the fit check. Of 1,132 pump.fun launches recorded, 542 had under 12 orders and 60 failed the check.
 <!-- figures:end -->
 
 ![Completion rate against the cost of faking a graduation, one bubble per design](web/img/evidence.jpg)

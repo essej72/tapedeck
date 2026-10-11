@@ -69,7 +69,8 @@ export async function transactionOf(rpc: Rpc, sig: string): Promise<ChainTx | nu
 
 export function openTapes(): DatabaseSync {
   const db = new DatabaseSync(TAPES_DB);
-  db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
+  // Several collectors write this file at once; wait for the other writer instead of failing.
+  db.exec("PRAGMA busy_timeout=60000; PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
   db.exec(`
     CREATE TABLE IF NOT EXISTS chain_tx (pool TEXT, seq INTEGER, sig TEXT, slot INTEGER, block_time INTEGER, payer TEXT, events TEXT, PRIMARY KEY (pool, seq));
     CREATE TABLE IF NOT EXISTS chain_pool (pool TEXT PRIMARY KEY, n_sigs INTEGER, n_tx INTEGER, complete INTEGER, fetched REAL);

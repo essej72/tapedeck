@@ -61,16 +61,16 @@
         <li><b>REC</b> gives you a paper wallet. Your orders go onto the tape at the moment you press, and the rest of the launch trades against the price you left behind.</li>
         <li>A config you like leaves as a file for Meteora's Invent CLI.</li>
       </ul>
-      <p>The shelf holds 57 tapes: 13 DBC pools read from the chain and 44 pump.fun launches recorded wallet by wallet.</p>
+      <p>The shelf holds 73 tapes: 13 DBC pools read from the chain and 60 pump.fun launches recorded wallet by wallet.</p>
     </div></div>
     <div class="track"><span>A3</span><div>
       <h3>It is not a simulator's guess. It is checked.</h3>
       <div class="figures">
-        <div><b>29,426</b><span>real mainnet swaps replayed from pool creation, across 196 pools and 50 kinds of config</span></div>
+        <div><b>107,341</b><span>real mainnet swaps replayed from pool creation, across 341 pools and 50 kinds of config</span></div>
         <div><b>0</b><span>mismatches, comparing amount in, amount out, next price and every fee, to the lamport</span></div>
-        <div><b class="tb">0.50%</b><span>worst gap between replayed and recorded tokens on nine buys in ten, on any pump.fun tape on the shelf</span></div>
+        <div><b class="tb">0.24%</b><span>worst gap between replayed and recorded tokens on nine buys in ten, on any pump.fun tape on the shelf</span></div>
       </div>
-      <p>Prices and fees come from Meteora's SDK. Around them the engine does what the program does and the SDK leaves out: the volatility tracker before and after each swap, the fee buckets, the minimum-fee first swap, completion at the threshold. A pump.fun tape is kept only if a DBC config equal to pump.fun's curve reproduces its recorded fills; 174 of 332 did not and were left out.</p>
+      <p>Prices and fees come from Meteora's SDK. Around them the engine does what the program does and the SDK leaves out: the volatility tracker before and after each swap, the fee buckets, the minimum-fee first swap, completion at the threshold. A pump.fun tape is kept only if a DBC config equal to pump.fun's curve reproduces its recorded fills: of 1,132 recorded, 542 were too short to play, 60 failed the check and 530 passed.</p>
     </div></div>
   </section>
 
@@ -82,7 +82,7 @@
       <div class="figures">
         <div><b>84%</b><span>of 1,131,326 pools completed, where faking costs under 2% of the raise</span></div>
         <div><b class="tb">2.7%</b><span>of 438,317 pools completed, where it costs 10% or more</span></div>
-        <div><b>39 of 50</b><span>pump.fun graduations recorded on 2026-10-10 were one party buying the curve in the launch slot</span></div>
+        <div><b>77 of 119</b><span>pump.fun graduations recorded 2026-10-10 to 2026-10-11 were one party buying the curve in the launch slot</span></div>
       </div>
       <p>On pump.fun's own curve the round trip costs about 19 SOL, mostly the fifth of the raise that stays behind in the pool. A config decides that number. Tapedeck shows it next to every design, and shows what the same buyout tape would have paid under yours.</p>
     </div></div>

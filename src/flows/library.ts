@@ -44,8 +44,11 @@ export type PackedTape = {
 
 const MAX_ORDERS = 3500;
 
-function pack(tape: Tape, sideA: PoolConfig, check: boolean): PackedTape | null {
-  if (tape.orders.length < 12) return null;
+const MIN_ORDERS = 12;
+
+/** A tape packed for the shelf, or the reason it does not go on it. */
+function pack(tape: Tape, sideA: PoolConfig, check: boolean): PackedTape | "short" | "misfit" {
+  if (tape.orders.length < MIN_ORDERS) return "short";
   const s = new Session(sideA, tape, { record: true });
   s.runToEnd();
   let fit: [number, number] = [0, 0];
@@ -58,13 +61,13 @@ function pack(tape: Tape, sideA: PoolConfig, check: boolean): PackedTape | null 
       if (!f.onCurve || !f.buy || !was) continue;
       gaps.push(Math.abs((f.quote * 1e9 * (1 - PUMP_CURVE_FEE)) / f.tokens / was - 1));
     }
-    if (gaps.length === 0) return null;
+    if (gaps.length === 0) return "misfit";
     gaps.sort((a, b) => a - b);
     fit = [gaps[Math.floor(gaps.length / 2)], gaps[Math.floor(gaps.length * 0.9)]];
-    if (fit[0] > 0.01 || fit[1] > 0.05) return null;
+    if (fit[0] > 0.01 || fit[1] > 0.05) return "misfit";
   }
   // The replay must also agree with the tape on whether the launch graduated.
-  if (s.curve.complete !== tape.graduated) return null;
+  if (s.curve.complete !== tape.graduated) return "misfit";
   let launchSlotBuys = 0;
   let curveBuys = 0;
   for (const f of s.fills) {
@@ -94,7 +97,12 @@ if (import.meta.main) {
   const max = Number(process.argv[2]) || 60;
   const db = openTapes();
   const pump = loadPumpfunTapes(db);
-  const packed = pump.map((t) => pack(t, PUMP_CLONE(), true)).filter((t): t is PackedTape => t !== null);
+  const verdicts = pump.map((t) => pack(t, PUMP_CLONE(), true));
+  const packed = verdicts.filter((t): t is PackedTape => typeof t !== "string");
+  const tooShort = verdicts.filter((v) => v === "short").length;
+  const misfit = verdicts.filter((v) => v === "misfit").length;
+  const span = db.prepare("SELECT MIN(fetched) lo, MAX(fetched) hi FROM pf_tape WHERE complete = 1").get() as { lo: number; hi: number };
+  const day = (t: number) => new Date(t * 1000).toISOString().slice(0, 10);
   // A spread of kinds, the busiest of each first.
   const byKind = new Map<string, PackedTape[]>();
   for (const t of packed) byKind.set(t.kind, [...(byKind.get(t.kind) ?? []), t]);
@@ -106,7 +114,7 @@ if (import.meta.main) {
   for (const v of loadVerified(db)) {
     const p = pack(v.tape, decodeConfig(Buffer.from(v.configData, "base64")), false);
     // A pool traded by one or two wallets is somebody talking to themselves, not a launch.
-    if (p && p.wallets >= 10) chain.push({ ...p, config: { address: v.config, bytes: v.configData }, exactSwaps: v.swaps });
+    if (typeof p !== "string" && p.wallets >= 10) chain.push({ ...p, config: { address: v.config, bytes: v.configData }, exactSwaps: v.swaps });
   }
   chain.sort((a, b) => b.orders.length - a.orders.length);
 
@@ -118,12 +126,12 @@ if (import.meta.main) {
       generatedAt: new Date().toISOString(),
       slotSeconds: 0.219,
       // what was recorded and passed, before the shelf was cut to size
-      pumpfun: { considered: pump.length, passed: packed.length, kinds: counts(packed) },
+      pumpfun: { considered: pump.length, passed: packed.length, tooShort, misfit, recordedFrom: day(span.lo), recordedTo: day(span.hi), kinds: counts(packed) },
       dbc: { passed: chain.length, kinds: counts(chain), swaps: chain.reduce((s, t) => s + (t.exactSwaps ?? 0), 0) },
       tapes: [...chain.slice(0, 24), ...chosen],
     }),
   );
-  console.log(`pump.fun: ${pump.length} tapes considered, ${packed.length} pass the fit check, ${chosen.length} on the shelf`, counts(packed));
+  console.log(`pump.fun: ${pump.length} tapes recorded ${day(span.lo)} to ${day(span.hi)}; ${tooShort} under ${MIN_ORDERS} orders, ${misfit} fail the fit check, ${packed.length} pass, ${chosen.length} on the shelf`, counts(packed));
   console.log(`DBC: ${chain.length} verified pools on the shelf`, counts(chain));
   for (const t of [...chain.slice(0, 24), ...chosen].slice(0, 50)) console.log(`  ${t.source.padEnd(12)} ${t.id.slice(0, 6)} ${t.kind.padEnd(22)} ${String(t.orders.length).padStart(5)} orders ${String(t.wallets).padStart(5)} traders ${t.seconds.toFixed(0).padStart(6)}s launch-slot ${t.launchSlotBuys}/${t.curveBuys}`);
 }
