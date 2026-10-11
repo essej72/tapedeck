@@ -37,6 +37,8 @@ export type Evidence = {
 export type MigrationSummary = { migrated: number; agree: number; dammV2: number; dammV1: number; asModelled: number; dynamicFee: number };
 /** src/afterwards.ts: the first swaps in each migrated DAMM v2 pool, replayed from the DBC accounts alone. */
 export type AfterwardsSummary = { swaps: number; withSwaps: number; exactOut: number; replayed: number; agree: number };
+/** src/dammsdk.ts: the same swaps, put to Meteora's DAMM v2 SDK. */
+export type DammSdkSummary = { sdk: string; swaps: number; pools: number; agree: number };
 export type Conformance = { generatedAt: string; total: { pools: number; swaps: number; older?: number; mismatches: number; finals: number; disagreeing?: number }; kinds: { kind: string; pools: number; swaps: number; mismatches: number }[]; disagree?: { pool: string; kind: string; swaps: number; first: string }[] };
 
 /** A design has no name on chain. Say what can be said: a registered partner name, or how its mints present themselves. */
@@ -55,7 +57,7 @@ type BuilderRun = { name: string; designs: number; refusedBySdk: number; refused
 /** src/builders.ts: random inputs through the SDK's curve builders, and what the live program did with the results. */
 export type BuildersSummary = { generatedAt: string; installed: BuilderRun; other: BuilderRun };
 
-export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib: Library | null, probe: ProbeSummary | null = null, builders: BuildersSummary | null = null, migration: MigrationSummary | null = null, afterwards: AfterwardsSummary | null = null): void {
+export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib: Library | null, probe: ProbeSummary | null = null, builders: BuildersSummary | null = null, migration: MigrationSummary | null = null, afterwards: AfterwardsSummary | null = null, dammSdk: DammSdkSummary | null = null): void {
   if (ev) {
     const t = ev.totals;
     const covered = t.pools - t.poolsUnderUnknownConfigs;
@@ -195,7 +197,7 @@ export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib
   } else $("probe-block").hidden = true;
 
   if (migration?.migrated) {
-    $("migration-lede").textContent = `The check does not stop where the curve does. ${int(migration.migrated)} of those pools have migrated (${int(migration.dammV2)} to DAMM v2, ${int(migration.dammV1)} to DAMM v1), and in ${migration.agree === migration.migrated ? "every one" : int(migration.agree)} the tokens that moved into the new pool's vaults and the price the pool opened at are what the engine says, to the unit. After that the deck trades in the new pool with DAMM v2's own arithmetic, whichever kind of pool the config produces: a flat or a dynamic fee, a fee schedule, a compounding pool.` + (afterwards?.swaps ? ` Their first swaps were replayed as well, from the DBC accounts alone: ${int(afterwards.swaps)} swaps in ${int(afterwards.withSwaps)} pools, ${int(afterwards.exactOut)} of them exact-out, with amounts, next price and fee as DAMM v2 recorded them in ${afterwards.agree === afterwards.replayed ? "every pool" : `${int(afterwards.agree)} of ${int(afterwards.replayed)} pools`}.` : "");
+    $("migration-lede").textContent = `The check does not stop where the curve does. ${int(migration.migrated)} of those pools have migrated (${int(migration.dammV2)} to DAMM v2, ${int(migration.dammV1)} to DAMM v1), and in ${migration.agree === migration.migrated ? "every one" : int(migration.agree)} the tokens that moved into the new pool's vaults and the price the pool opened at are what the engine says, to the unit. After that the deck trades in the new pool with DAMM v2's own arithmetic, whichever kind of pool the config produces: a flat or a dynamic fee, a fee schedule, a compounding pool.` + (afterwards?.swaps ? ` Their first swaps were replayed as well, from the DBC accounts alone: ${int(afterwards.swaps)} swaps in ${int(afterwards.withSwaps)} pools, ${int(afterwards.exactOut)} of them exact-out, with amounts, next price and fee as DAMM v2 recorded them in ${afterwards.agree === afterwards.replayed ? "every pool" : `${int(afterwards.agree)} of ${int(afterwards.replayed)} pools`}.` : "") + (dammSdk?.swaps ? ` Meteora's DAMM v2 SDK, asked the same ${int(dammSdk.swaps)} swaps from the pool as it stood before each, agrees with the program in ${dammSdk.agree === dammSdk.pools ? "every pool" : `${int(dammSdk.agree)} of ${int(dammSdk.pools)} pools`} too.` : "");
   } else $("migration-lede").hidden = true;
 
   if (builders?.installed.designs) {

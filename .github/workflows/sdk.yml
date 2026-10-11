@@ -1,5 +1,6 @@
 # Meteora's DBC SDK as it stands upstream, held to mainnet with this repository's own action (action.yml):
 # the published branch and the 2.0 pull request, through the corpus and the simulated swaps.
+# And Meteora's DAMM v2 SDK at its main, through the swaps recorded in the pools those curves migrated into.
 name: sdk
 on:
   push:
@@ -29,3 +30,30 @@ jobs:
       - uses: ./
         with:
           sdk-path: sdk/packages/dynamic-bonding-curve
+  damm-v2:
+    runs-on: ubuntu-latest
+    name: damm-v2-sdk main
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: MeteoraAg/damm-v2-sdk
+          path: damm-sdk
+      - name: Which commit
+        run: git -C damm-sdk log -1 --format='%h %ad %s' --date=short
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Fetch the migrated pools and their first swaps
+        run: |
+          mkdir -p data
+          from="https://github.com/essej72/tapedeck/releases/latest/download"
+          curl -sSfL -o data/afterwards.jsonl.gz "$from/afterwards.jsonl.gz"
+          curl -sSfL -o data/damm-pools.jsonl.gz "$from/damm-pools.jsonl.gz"
+      - name: Bundle the checkout
+        run: node scripts/bundle-damm-sdk.mjs damm-sdk data/damm-sdk.cjs
+      - name: The published package
+        run: node src/dammsdk.ts check --file data/afterwards.jsonl.gz --pools data/damm-pools.jsonl.gz
+      - name: The checkout
+        run: node src/dammsdk.ts check --sdk data/damm-sdk.cjs --file data/afterwards.jsonl.gz --pools data/damm-pools.jsonl.gz

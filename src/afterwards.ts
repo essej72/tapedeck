@@ -14,6 +14,7 @@ import { createDammV2Program, DAMM_V2_PROGRAM_ID } from "@meteora-ag/dynamic-bon
 import { Connection } from "@solana/web3.js";
 import BN from "bn.js";
 import bs58 from "bs58";
+import type { MigratedPool } from "./engine/amm.ts";
 import { enginePool, poolShape, readLines, readMigrations, type Migration } from "./migration.ts";
 import { Rpc, RPC_URL } from "./rpc.ts";
 
@@ -29,8 +30,11 @@ export type Afterwards = Migration & { after: After[]; transactions: number };
 /** `exactOut`: how many of the swaps were exact-out. `cutShort`: partial fills that ran out of range, taken from the chain. */
 export type AfterVerdict = { swaps: number; exactOut: number; cutShort: number; mismatches: string[]; stopped?: string };
 
-/** Replay a migrated pool's first swaps from the DBC accounts alone and compare each with what DAMM v2 recorded. */
-export function replayAfterwards(row: Afterwards): AfterVerdict {
+/**
+ * Replay a migrated pool's first swaps from the DBC accounts alone and compare each with what DAMM v2 recorded.
+ * `watch` is shown the pool as it stands before each swap the engine replays (dammsdk.ts asks the SDK there).
+ */
+export function replayAfterwards(row: Afterwards, watch?: (pool: MigratedPool, swap: Extract<After, { kind: "swap" }>, n: number) => void): AfterVerdict {
   const shape = poolShape(row);
   if (!shape || !row.damm || !(shape.fullRange && shape.feeAsEngine && shape.feeSideAsEngine)) return { swaps: 0, exactOut: 0, cutShort: 0, mismatches: [], stopped: "a kind of pool the engine does not model" };
   const pool = enginePool(row);
@@ -99,6 +103,7 @@ export function replayAfterwards(row: Afterwards): AfterVerdict {
         continue;
       }
       swaps++;
+      watch?.(pool, e, swaps);
       const at = `swap ${swaps} ${e.sig.slice(0, 8)}`;
       if (e.mode === 2) {
         exactOut++;

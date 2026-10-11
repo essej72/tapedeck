@@ -28,6 +28,7 @@
     "decimal.js": "^10.5.0"
   },
   "devDependencies": {
+    "@meteora-ag/cp-amm-sdk": "1.5.1",
     "esbuild": "^0.25.10"
   }
 }

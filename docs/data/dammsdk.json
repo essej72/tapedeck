@@ -1,0 +1,14 @@
+{
+ "generatedAt": "2026-10-11T23:18:39.789Z",
+ "sdk": "1.5.1 from npm, and main at 79ebbfe",
+ "pools": 166,
+ "swaps": 5697,
+ "exactOut": 1591,
+ "partial": 33,
+ "dynamicSwaps": 441,
+ "scheduledSwaps": 41,
+ "compoundingSwaps": 11,
+ "skipped": 0,
+ "agree": 166,
+ "differing": []
+}
