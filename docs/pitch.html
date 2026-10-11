@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Michroma&display=swap">
-<link rel="stylesheet" href="style.css?v=cd39183e">
+<link rel="stylesheet" href="style.css?v=cb2e2fab">
 <style>
   /* Layout: a cassette inlay card. Two sides, three tracks each, read top to bottom. */
   .inlay { max-width: 920px; margin-inline: auto; }
@@ -31,7 +31,7 @@
   .figures .tb { color: var(--side-b); }
   .figures span { font-size: 13px; line-height: 1.35; display: block; margin-top: 6px; color: var(--glass-ink); }
   .demo { margin: 22px 0 0; }
-  .demo img { display: block; width: 100%; height: auto; max-width: 100%; border: 1px solid var(--key-edge); border-radius: 3px; }
+  .demo img, .demo video { display: block; width: 100%; height: auto; max-width: 100%; border: 1px solid var(--key-edge); border-radius: 3px; background: #0e1413; }
   .demo figcaption { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
   .foot { padding-block: 22px; color: var(--ink-2); font-size: 13px; }
   @media (max-width: 560px) { .track { grid-template-columns: minmax(0, 1fr); } }
@@ -51,8 +51,11 @@
   </header>
 
   <figure class="demo">
-    <img src="img/demo.gif" width="960" height="644" alt="The deck playing a real DBC pool, then the same orders through other configs, a pump.fun launch bought out in the launch slot, paper trading, and the evidence chart">
-    <figcaption>32 seconds: a real pool played back, Side B through three configs, the live program asked whether it takes a design, a one-party buyout, REC, and what a graduation costs.</figcaption>
+    <video controls preload="metadata" playsinline poster="img/deck.jpg" width="1280" height="864">
+      <source src="img/demo.mp4" type="video/mp4">
+      <img src="img/demo.gif" width="960" height="644" alt="The deck playing a real DBC pool, then the same orders through other configs, a pump.fun launch bought out in the launch slot, paper trading, and the evidence chart">
+    </video>
+    <figcaption>One minute, no sound: a real pool played back, Side B through three configs, the live program asked whether it takes a design, a one-party buyout, REC, what a graduation costs, and how the engine is checked.</figcaption>
   </figure>
 
   <section class="side a">
@@ -82,6 +85,7 @@
       <p>7 more pools do not replay, and should not: they were traded under older builds of the program, before an exact-in buy was stopped at the migration price and while the maximum fee was 50%. They are counted and explained in the README, not left out.</p>
       <p>Do not take the number on trust: paste a pool of your own into the deck and it runs the same check in front of you.</p>
       <p>History only covers the swaps people make, and nobody makes exact-out swaps. So those were put to the program itself: 3,735 transactions simulated against the live program on 521 open pools, 3,969 exact-out swaps, 0 disagreements. Nothing signed, nothing sent.</p>
+      <p>And it does not stop where the curve does. In 179 of 179 real migrations the tokens that moved into the new pool and its opening price are the engine's, to the unit, and 5,657 swaps in 165 of those DAMM v2 pools replay from the DBC accounts alone, whichever kind of pool the config produces.</p>
       <p>Prices and fees come from Meteora's SDK. Around them the engine does what the program does and the SDK leaves out: the volatility tracker before and after each swap, the fee buckets, the minimum-fee first swap, completion at the threshold. A pump.fun tape is kept only if a DBC config equal to pump.fun's curve reproduces its recorded fills: of 1,206 recorded, 584 were too short to play, 61 failed the check and 561 passed.</p>
     </div></div>
   </section>
@@ -111,7 +115,7 @@
       <h3>Where it stops, and what is next</h3>
       <ul>
         <li>A replay is a stress test, not a forecast: it prices the play on the tape under your config, it does not predict how traders would adapt. REC is the honest way to try.</li>
-        <li>After migration the pool is modelled as constant product with the config's flat fee.</li>
+        <li>After migration the deck trades in the DAMM v2 pool with DAMM v2's own arithmetic, but it does not predict what liquidity providers do next. A DAMM v1 pool, which new configs can no longer migrate to, is only modelled.</li>
         <li>The tapes cover days, not seasons.</li>
         <li>Measured on the way: in SDK 1.5.13 <code>getPoolConfigsByOwner</code> filters on the leftover receiver, not the fee claimer. The SDK team opened a fix the same day (PR #124, now part of #123). The census shows how far it reaches: the two differ for 37% of configs on mainnet (200,278).</li>
         <li>Also found: the Invent config's comments size slot-based fee schedules at 0.4 s a slot. Mainnet slots ran at 0.219 s on 2026-10-10, so a schedule written as "60 seconds" in slots lasts about 33. The deck writes schedules in seconds.</li>

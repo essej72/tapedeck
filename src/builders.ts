@@ -222,7 +222,8 @@ function capErrors(sdk: Sdk, d: Design, stored: Uint8Array) {
 
 // ---------------------------------------------------------------- commands
 
-const args = process.argv.slice(2);
+// only when this file is the one being run: another tool that imports it keeps its own arguments
+const args = import.meta.main ? process.argv.slice(2) : [];
 const flag = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
 const sdkPath = flag("--sdk");
 const sdkName = sdkPath ?? "the installed SDK";

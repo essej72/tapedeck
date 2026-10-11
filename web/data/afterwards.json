@@ -1,0 +1,21 @@
+{
+ "generatedAt": "2026-10-11T15:17:38.975Z",
+ "pools": 166,
+ "notModelled": 0,
+ "compoundingPools": 1,
+ "compoundingSwaps": 11,
+ "scheduledPools": 2,
+ "scheduledSwaps": 41,
+ "dynamicPools": 12,
+ "dynamicSwaps": 441,
+ "replayed": 166,
+ "withSwaps": 165,
+ "swaps": 5657,
+ "buys": 3091,
+ "liquidityChanges": 54,
+ "exactOut": 1590,
+ "takenFromChain": 0,
+ "stoppedEarly": 0,
+ "agree": 166,
+ "differing": []
+}

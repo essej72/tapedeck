@@ -39,10 +39,12 @@ test("the protocol's cut of the tokens is the base side of its quote cut, not a 
   assert.ok(simplerIsWrong > 0);
 });
 
-test("a pool the engine does not fully model is counted as one: dynamic fee, compounding", () => {
+test("the engine knows from the config what kind of DAMM v2 pool comes out: range, fee side, dynamic fee, fee schedule", () => {
   const shapes = rows.filter((r) => r.damm).map((r) => ({ r, shape: poolShape(r)! }));
-  const dynamic = shapes.find((x) => x.r.damm!.dynamicFee);
-  assert.ok(dynamic && !dynamic.shape.flatFee);
+  const dynamic = shapes.filter((x) => x.r.damm!.dynamicFee);
+  assert.ok(dynamic.length >= 3 && dynamic.every((x) => !x.shape.flatFee));
+  assert.ok(shapes.some((x) => configOf(x.r).migratedCollectFeeMode === 2), "no compounding pool");
+  for (const x of shapes) assert.ok(x.shape.fullRange && x.shape.feeAsEngine && x.shape.feeSideAsEngine && x.shape.dynamicAsEngine && x.shape.scheduleAsEngine, x.r.pool);
   const plain = shapes.filter((x) => x.shape.fullRange && x.shape.feeAsEngine && x.shape.flatFee && x.shape.feeSideAsEngine);
   assert.ok(plain.length >= 10);
   // where the config asks for the fee from the output token, the engine takes a buy's fee in tokens

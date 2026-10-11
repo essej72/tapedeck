@@ -96,13 +96,19 @@ export function poolShape(m: Migration) {
   if (!m.damm) return null;
   const engine = enginePool(m);
   return {
-    fullRange: m.damm.sqrtMinPrice === MIN_SQRT_PRICE.toString() && m.damm.sqrtMaxPrice === MAX_SQRT_PRICE.toString(),
+    // one liquidity over DAMM v2's whole price range; a compounding pool has no range at all (it records 0 as its floor)
+    fullRange: engine.compounding ? m.damm.sqrtMinPrice === "0" : m.damm.sqrtMinPrice === MIN_SQRT_PRICE.toString() && m.damm.sqrtMaxPrice === MAX_SQRT_PRICE.toString(),
     // DAMM v2 counts fees in parts per billion, the engine in parts per million
     feeAsEngine: (BigInt(m.damm.cliffFeeNumerator) / 1000n).toString() === engine.feePpm.toString(),
     flatFee: !m.damm.scheduled && !m.damm.dynamicFee,
-    // DAMM v2: 1 = the fee always in the quote token, 0 = from whatever the trade pays out
-    feeSideAsEngine: m.damm.collectFeeMode === (engine.feeOnOutput ? 0 : 1),
+    // DAMM v2: 1 = the fee always in the quote token, 0 = from whatever the trade pays out, 2 = compounding
+    feeSideAsEngine: m.damm.collectFeeMode === (engine.compounding ? 2 : engine.feeOnOutput ? 0 : 1),
     feeInQuote: m.damm.collectFeeMode === 1,
+    // the engine reads from the config whether the new pool will have DAMM v2's dynamic fee
+    dynamicAsEngine: m.damm.dynamicFee === (engine.dynamic !== null),
+    scheduled: m.damm.scheduled,
+    // and whether it will have a fee schedule
+    scheduleAsEngine: m.damm.scheduled === (engine.schedule !== null),
   };
 }
 
@@ -129,8 +135,10 @@ export function summarize(rows: Migration[]) {
     flatFee: shapes.filter((s) => s.flatFee).length,
     feeInQuote: shapes.filter((s) => s.feeInQuote).length,
     feeSideAsEngine: shapes.filter((s) => s.feeSideAsEngine).length,
-    // the whole of what the engine models after migration: full range, the config's fee rate, flat, on the side the config says
-    asModelled: shapes.filter((s) => s.fullRange && s.feeAsEngine && s.flatFee && s.feeSideAsEngine).length,
+    dynamicAsEngine: shapes.filter((s) => s.dynamicAsEngine).length,
+    // the whole of what the engine models after migration: full range, the config's fee rate on the side the config
+    // says, and a dynamic fee and a fee schedule exactly where the engine expects them
+    asModelled: shapes.filter((s) => s.fullRange && s.feeAsEngine && s.feeSideAsEngine && s.dynamicAsEngine && s.scheduleAsEngine).length,
     withProtocolFee: migrated.filter((r) => (protocolCut(r)?.bps ?? 0) > 0).length,
     // pools whose account still shows what the protocol took (it is cleared when the protocol claims it)
     protocolCutShown: migrated.filter((r) => (protocolCut(r)?.quote ?? "0") !== "0").length,
@@ -154,7 +162,8 @@ type RawTx = {
 };
 
 const EVENT_IX_TAG = [0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d];
-const args = process.argv.slice(2);
+// only when this file is the one being run: another tool that imports it keeps its own arguments
+const args = import.meta.main ? process.argv.slice(2) : [];
 const flag = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
 
 if (args[0] === "run") {
@@ -184,7 +193,7 @@ if (args[0] === "run") {
     // Everything that touched the pool after the transaction that completed it, oldest first.
     const later = (await rpc.call<{ signature: string; err: unknown }[]>("getSignaturesForAddress", [pool, { until: completed.sig, limit: 1000 }])).filter((s) => !s.err).reverse();
     for (const s of later.slice(0, 40)) {
-      const tx = await rpc.call<RawTx | null>("getTransaction", [s.signature, { maxSupportedTransactionVersion: 0, encoding: "json" }]);
+      const tx = await rpc.call<RawTx | null>("getTransaction", [s.signature, { maxSupportedTransactionVersion: 1, encoding: "json" }]);
       const logs = tx?.meta?.logMessages ?? [];
       const v2 = logs.some((l) => l === "Program log: Instruction: MigrationDammV2");
       const v1 = logs.some((l) => l === "Program log: Instruction: MigrateMeteoraDamm");
@@ -268,7 +277,7 @@ if (args[0] === "run") {
   console.log(`${s.completed} completed pools: ${s.migrated} migrated (${s.dammV2} to DAMM v2, ${s.dammV1} to DAMM v1) under ${s.configs} configs, ${s.notMigrated} not yet`);
   console.log(`what moved into the new pool is what the engine says migrates, to the unit, at the price it says: ${s.agree} of ${s.migrated}`);
   for (const d of s.differing.slice(0, 12)) console.log(`  ${d.pool.slice(0, 8)} ${d.differences.join(" | ")}`);
-  console.log(`of the ${s.dammV2} DAMM v2 pools: ${s.fullRange} full range, ${s.feeAsEngine} at the fee rate the engine uses, ${s.feeSideAsEngine} taking it on the side the engine does (${s.feeInQuote} in quote, ${s.dammV2 - s.feeInQuote} from the output token), ${s.flatFee} with a flat fee (no schedule, no dynamic fee); ${s.asModelled} are all four, which is the pool the deck trades in after migration`);
+  console.log(`of the ${s.dammV2} DAMM v2 pools: ${s.fullRange} with the price range the engine expects (${s.compounding} compounding, which has none), ${s.feeAsEngine} at the fee rate the engine uses, ${s.feeSideAsEngine} taking it on the side the engine does (${s.feeInQuote} in quote, ${s.dammV2 - s.feeInQuote - s.compounding} from the output token), ${s.flatFee} with a flat fee, ${s.dynamicFee} with DAMM v2's dynamic fee (${s.dynamicAsEngine} have or lack it as the engine expects), ${s.scheduledFee} with a fee schedule; ${s.asModelled} are pools the deck trades in exactly after migration`);
   if (flag("--json")) writeFileSync(flag("--json")!, JSON.stringify({ generatedAt: new Date().toISOString(), ...s, differing: s.differing.slice(0, 20) }, null, 1));
   process.exit(s.differing.length ? 1 : 0);
 }

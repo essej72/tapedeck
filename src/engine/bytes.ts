@@ -127,6 +127,9 @@ export function configFromBytes(data: Uint8Array): LoadedConfig {
     migratedDynamicFee: u8("migrated_dynamic_fee"),
     migratedPoolFeeBps: u16("migrated_pool_fee_bps"),
     migratedPoolBaseFeeMode: u8("migrated_pool_base_fee_mode"),
+    migratedCompoundingFeeBps: u16("migrated_compounding_fee_bps"),
+    // the migrated pool's market-cap fee schedule, when the base fee mode is one (3 linear, 4 exponential)
+    migratedPoolBaseFeeBytes: Array.from(d.subarray(o("migrated_pool_base_fee_bytes"), o("migrated_pool_base_fee_bytes") + 16)),
     enableFirstSwapWithMinFee: u8("enable_first_swap_with_min_fee"),
     poolCreationFee: u64("pool_creation_fee"),
     sqrtStartPrice: u128at(o("sqrt_start_price")),

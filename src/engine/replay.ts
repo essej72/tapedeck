@@ -195,7 +195,7 @@ export class Session {
     try {
       if (this.amm) {
         onCurve = false;
-        const r = buy ? this.amm.buy(amount) : this.amm.sell(amount);
+        const r = buy ? this.amm.buy(amount, TS0 + Math.floor(when.t)) : this.amm.sell(amount, TS0 + Math.floor(when.t));
         if (r.out.isZero()) throw new Error("dust");
         // a fee the pool takes in tokens is valued at the price the swap ended on, as on the curve
         fee = (num(r.fee) * (r.feeOnBase ? this.amm.price : 1)) / this.unit;
@@ -236,12 +236,13 @@ export class Session {
           this.graduatedAt = when.t;
           const amm = new MigratedPool(this.config);
           this.fees.migration = num(amm.migrationFee) / this.unit;
+          amm.openedAt = TS0 + Math.floor(when.t);
           if (amm.usable) this.amm = amm;
           // The buy that completes the curve usually has money left over. The buyer meant to spend it, so the
           // rest goes into the migrated pool at once, as it would in the next instruction of a real bundle.
           const change = buy ? amount.sub(f.amountIn) : new BN(0);
           if (this.amm && change.gtn(0)) {
-            const r = this.amm.buy(change);
+            const r = this.amm.buy(change, TS0 + Math.floor(when.t));
             const poolFee = (num(r.fee) * (r.feeOnBase ? this.amm.price : 1)) / this.unit;
             this.fees.pool += poolFee;
             fee += poolFee;

@@ -15,7 +15,7 @@ A **tape** is a real launch, order by order: who bought, who sold, when, how muc
 
 Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Crypto World's Fair 2026.
 
-**[Open the deck](https://essej72.github.io/tapedeck/)** · **[Pitch](https://essej72.github.io/tapedeck/pitch.html)** · **[Evidence](https://essej72.github.io/tapedeck/#evidence)**
+**[Open the deck](https://essej72.github.io/tapedeck/)** · **[One-minute video](https://essej72.github.io/tapedeck/img/demo.mp4)** · **[Pitch](https://essej72.github.io/tapedeck/pitch.html)** · **[Evidence](https://essej72.github.io/tapedeck/#evidence)**
 
 ![Tapedeck playing a real DBC pool, switching Side B's config, asking the live program whether it takes the design, a pump.fun buyout, paper trading, and the evidence chart](web/img/demo.gif)
 
@@ -29,6 +29,7 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 - **Engine against chain:** 186,352 real swaps in 666 pools and 77 kinds of config replay to the lamport. 7 more pools were traded under older builds of the program and differ exactly where the program has since changed; they are counted as mismatches and explained under "Found on the way".
 - **Engine against the program itself:** 5,169 swaps simulated against the live program on 521 open pools, 3,969 of them exact-out (a swap nobody makes on mainnet, so no history can check it), 0 disagreements.
 - **Engine against migration:** in 179 of 179 real migrations, the tokens that moved into the new pool and the price the pool opened at are what the engine says, to the unit.
+- **Engine against the migrated pool:** 5,657 real swaps in 165 DAMM v2 pools, 1,590 of them exact-out, replayed from the DBC accounts alone: amounts, next price and fee as DAMM v2 recorded them in every pool.
 - **Builders against the program:** 600 random inputs through the SDK's six curve builders, each result simulated against the live program. It refused 12 of the configs SDK 1.5.13 returned and none of the 303 the 2.0 branch returned.
 - **Shelf:** 84 tapes: 24 DBC pools read from the chain and 60 pump.fun launches, picked from 561 that passed the fit check. Of 1,206 pump.fun launches recorded, 584 had under 12 orders and 61 failed the check.
 <!-- figures:end -->
@@ -47,13 +48,14 @@ Then it is held to the chain:
 - `node src/conformance.ts pick && node src/conformance.ts run` does that for pools spread over every combination of fee mode, fee token, activation type, first-swap setting and quote token in use on mainnet.
 <!-- migration:start -->
 - `node src/migration.ts run` follows every completed pool of that run across its migration: 183 pools, 179 of them migrated (167 to DAMM v2, 12 to DAMM v1, 5 with the liquidity split between two positions). In all 179, the tokens that moved into the new pool's vaults and the price the new pool opened at are what the engine says, to the unit, and so is the protocol's cut in the 156 pools whose account still shows it. It did not start that way: on the first run, on 11 October, the engine agreed in 57 of them. In 92 its token amount was one unit high, because the protocol's cut of the tokens is the base side of its quote cut and not 0.2% of the tokens. In 17 it took the protocol's 0.2% from pools that carry no such fee: the rate is kept on each pool account, and it is zero for every DAMM v1 migration here and for the oldest DAMM v2 ones. The other 13 had their liquidity split between two positions, which costs up to a lamport's worth of tokens, or were small enough for the rounding to show. All of that is fixed in `src/engine/amm.ts`, and 36 of the migrations are kept as a test.
+- `node src/afterwards.ts run` goes on into the new pool: the first transactions after migration of 166 of the 167 DAMM v2 pools (the rest have traded too much since to page back to their migration on a public endpoint), 5,657 swaps in 165 pools (3,091 buys; 1,590 exact-out, which is common there and unheard of on the curve; 441 in the 12 pools with DAMM v2's dynamic fee, 41 under a market-cap fee schedule, 11 in a compounding pool), across 54 later additions and removals of liquidity. The engine's pool is built from the DBC config and pool accounts alone; it takes the moment of migration and later changes of liquidity from the chain, and gives every swap's amounts, next price and fee as DAMM v2 recorded them in all 166 pools.
 <!-- migration:end -->
 - A pump.fun tape goes on the shelf only if a DBC config equal to pump.fun's curve returns the recorded number of tokens on every curve buy.
 - The deck does the same check live, in the browser, for any pool you paste. The browser build reads accounts and events from the IDL alone (no Anchor); it is tested against the SDK's Anchor coder on 160 real config accounts and 470 real events.
 - `node src/dryrun.ts` builds the `create_config` transaction for the deck's built-in designs and for 150 random settings of its form, and has a node simulate each against the live program. 126 were accepted, and every one was stored field for field as the deck derives it (start price, migration price and base threshold included); the other 27 the SDK's own validation had already refused (under 10% of liquidity locked), which the deck shows as an error. The program refused none.
 - `node src/probe.ts run` asks the live program about swaps nobody has made (exact-out), by simulation, and compares its answers with the engine's. See below.
 - `node src/builders.ts run` puts random inputs through the SDK's six curve builders and asks the live program what it makes of each result. See below.
-- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes, a spread of the simulated swaps, 24 designs with the account the program stored for each, the program's answers to 37 builder results, 36 migrations with what moved into the new pool, and the awkward histories: swaps recorded with the older event, pools from older builds of the program, a history with a hole.
+- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes, a spread of the simulated swaps, 24 designs with the account the program stored for each, the program's answers to 37 builder results, 36 migrations with what moved into the new pool, the first swaps in 13 of the DAMM v2 pools they created, and the awkward histories: swaps recorded with the older event, pools from older builds of the program, a history with a hole.
 
 ## Check an SDK build against mainnet
 
@@ -191,6 +193,8 @@ node src/conformance.ts run
 node src/conformance.ts report
 node src/migration.ts run           # the completed pools, followed into the pool they migrated to
 node src/migration.ts check --json web/data/migration.json
+node src/afterwards.ts run 40       # and on into the migrated pools: their first transactions
+node src/afterwards.ts check --json web/data/afterwards.json
 node src/probe.ts run 2             # swaps nobody has made, simulated against the live program
 node src/probe.ts check
 
@@ -213,7 +217,7 @@ npm run build
 | `src/deploy.ts`, `src/dryrun.ts` | The `create_config` transaction for a design, a dry run against the live program, and the comparison of what it would store |
 | `src/engine/bytes.ts`, `src/events.ts`, `src/layout.ts` | Accounts and events read from the IDL alone, for the browser |
 | `src/engine/verify.ts` | Replay a pool's history against its own events and report every difference |
-| `src/engine/amm.ts`, `src/migration.ts` | The migrated pool: what moves into it (held against each migration transaction), then constant-product trading |
+| `src/engine/amm.ts`, `src/migration.ts`, `src/afterwards.ts` | The migrated pool: what moves into it (held against each migration transaction), then DAMM v2's own swap arithmetic (held against the first swaps in each pool) |
 | `src/census/` | The whole-chain census and the design table |
 | `src/flows/history.ts`, `chain.ts`, `chaintape.ts`, `dbc.ts` | Pool histories from the chain, verified and turned into tapes |
 | `src/flows/pumpfun.ts`, `tapes.ts`, `pack.ts`, `library.ts` | pump.fun tapes: collect, turn trades into orders, check, pack |
@@ -232,12 +236,14 @@ npm run build
 - **Invent CLI** as one way out: Side B exports a `dbc_config` file, dry run on.
 - **`createConfig`** as the other: the SDK's own transaction, simulated against the program and then signed by the visitor's wallet.
 - **`swap2`** in simulation, to get the program's own answer for swaps no history contains.
+- **DAMM v2** for everything after the curve: the migration transactions and the new pool's own events (`EvtInitializePool`, `EvtLiquidityChange`, `EvtSwap2`, and the older ones) as ground truth, decoded with the DAMM v2 IDL the SDK carries, and the SDK's price-step functions for its swap arithmetic.
+- **The SDK's 2.0 branch**, bundled from a checkout, for the corpus, the simulated swaps and the curve builders, before it is on npm.
 
 ## Limits
 
 - A replay is a stress test, not a forecast. It prices the play on the tape under another config; it does not predict how traders would adapt. Under a 50% launch fee nobody sane buys in the launch slot. REC is the honest way to see how a launch trades differently.
 <!-- afterwards:start -->
-- After migration the pool is modelled as full-range constant product with the config's fee rate, taken in quote or from the output token as the config says. Of the 167 DAMM v2 pools in the migration check, 153 opened as exactly that. The other 14 did not: 13 have DAMM v2's dynamic fee on (all 11 of the 11 that use a fixed fee tier get it whatever their config says), 2 have a market-cap fee schedule and 1 is a compounding pool. The deck applies none of those. Trading after migration is not replayed against DAMM v2's own swap events.
+- After migration, a DAMM v2 pool is traded with DAMM v2's own arithmetic, whichever kind of pool the config produces: one liquidity over the whole price range or a compounding pool, the fee on the side the config says, DAMM v2's dynamic fee where the pool has one, a market-cap fee schedule where the config sets one. All 11 pools in the migration check that use a fixed fee tier have the dynamic fee, whatever their config says, and the engine expects that. All 167 DAMM v2 pools there come out as the kind the engine expects, and their first swaps are held against DAMM v2's own events (above). What liquidity providers do afterwards is not predicted: in the check, additions and removals are taken from the chain. A DAMM v1 pool, which a new config can no longer migrate to, is traded as plain constant product with a flat fee and is not checked.
 <!-- afterwards:end -->
 - Transfer-fee and transfer-hook tokens are not replayed. Program 0.2.2 (open as [PR #211](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/211) on the program's repository; `create_config2` was not on mainnet on 11 October) adds a transfer fee on the base mint and a third swap event, `EvtSwap3`, next to the two it emits today. A standard pool goes on emitting the event the replay reads, so nothing changes for it. A pool whose token charges a transfer fee is recognised from its config and declined, not replayed as if it did not.
 - The trade feed shows trades, not transfers. A wallet that sells tokens it never bought on the tape is merged with the wallet that most plausibly gave them to it. Bundles come out as one trader; an unrelated pair is occasionally merged by mistake.
