@@ -32,6 +32,8 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
 }
 
 const solOf = (lamports: number) => (lamports / 1e9).toFixed(4);
+// Two signatures (the wallet's and the new account's) at 5,000 lamports each. A wallet may add a priority fee on top.
+const NETWORK_FEE = 10_000;
 
 /** `spec` returns the design on Side B, or null when Side B is a config that already exists on mainnet. */
 export function mountMainnet(spec: () => DesignSpec | null, created: (address: string) => void): void {
@@ -72,7 +74,19 @@ export function mountMainnet(spec: () => DesignSpec | null, created: (address: s
       tx.recentBlockhash = (await rpc<{ value: { blockhash: string } }>("getLatestBlockhash", [{ commitment: "confirmed" }])).value.blockhash;
       // Rehearse with the real payer first: an empty wallet or a refusal shows up here, before the wallet asks.
       const run = await dryRun(RPC, tx, account.publicKey);
-      if (!run.ok || !run.data) return say(`The program would refuse it from this wallet: ${run.error}.`, true);
+      if (!run.ok || !run.data) {
+        // A wallet with no SOL does not exist on chain, and all the node says is "AccountNotFound". Find out what
+        // the account costs from the stand-in and say how much is missing.
+        const have = (await rpc<{ value: number }>("getBalance", [me.toBase58(), { commitment: "confirmed" }])).value;
+        const standIn = { payer: STAND_IN, feeClaimer: STAND_IN, leftoverReceiver: STAND_IN };
+        const cost = await dryRun(RPC, await configTransaction(connection, s, standIn, account.publicKey), account.publicKey);
+        const need = cost.lamports + NETWORK_FEE;
+        if (cost.ok && have < need) {
+          const address = me.toBase58();
+          return say(`Your wallet ${address.slice(0, 4)}…${address.slice(-4)} holds ${solOf(have)} SOL on mainnet. Creating this config takes ${solOf(need)} SOL: rent for one account plus the network fee. Top it up and press again. Nothing was sent.`, true);
+        }
+        return say(`The program would refuse it from this wallet: ${run.error}.`, true);
+      }
       if (differences(s, run.data, who).length) return say("The program would store this differently from Side B, so nothing was sent.", true);
       tx.partialSign(account);
       say(`Approve in your wallet: one account, ${solOf(run.lamports)} SOL rent plus the network fee. You become its fee claimer.`);
