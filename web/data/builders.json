@@ -1,0 +1,708 @@
+{
+ "generatedAt": "2026-10-11T13:01:11.834Z",
+ "installed": {
+  "name": "SDK 1.5.13",
+  "designs": 600,
+  "refusedBySdk": 304,
+  "refusedByProgram": 12,
+  "stored": 284,
+  "storedAsDerived": 156,
+  "storedDifferently": 128,
+  "storedMigrationBaseOnly": 128,
+  "worstInitialCapError": 0.0000033616076766662673,
+  "worstMigrationCapError": 0.12842857140646946,
+  "migrationCapOff": 72,
+  "withMarketCaps": 174,
+  "byBuilder": [
+   {
+    "builder": "buildCurve",
+    "designs": 93,
+    "refusedBySdk": 35,
+    "refusedByProgram": 0,
+    "stored": 58
+   },
+   {
+    "builder": "buildCurveWithMarketCap",
+    "designs": 94,
+    "refusedBySdk": 34,
+    "refusedByProgram": 6,
+    "stored": 54
+   },
+   {
+    "builder": "buildCurveWithTwoSegments",
+    "designs": 94,
+    "refusedBySdk": 55,
+    "refusedByProgram": 2,
+    "stored": 37
+   },
+   {
+    "builder": "buildCurveWithMidPrice",
+    "designs": 100,
+    "refusedBySdk": 59,
+    "refusedByProgram": 4,
+    "stored": 37
+   },
+   {
+    "builder": "buildCurveWithLiquidityWeights",
+    "designs": 104,
+    "refusedBySdk": 58,
+    "refusedByProgram": 0,
+    "stored": 46
+   },
+   {
+    "builder": "buildCurveWithCustomSqrtPrices",
+    "designs": 115,
+    "refusedBySdk": 63,
+    "refusedByProgram": 0,
+    "stored": 52
+   }
+  ],
+  "sdkReasons": [
+   {
+    "why": "Mint authority token update options are only supported for transfer-hook configs",
+    "count": 72
+   },
+   {
+    "why": "leftOverDelta must be less than totalLeftover",
+    "count": 71
+   },
+   {
+    "why": "Invalid migration locked liquidity. At least 1000 BPS (10%) must be locked at day 1. Current locked liquidity ",
+    "count": 62
+   },
+   {
+    "why": "Curve is empty",
+    "count": 48
+   },
+   {
+    "why": "Invalid pool fees",
+    "count": 40
+   },
+   {
+    "why": "SafeMath: subtraction overflow",
+    "count": 8
+   },
+   {
+    "why": "Migration creator fee percentage must be 0 when migration fee percentage is 0",
+    "count": 1
+   },
+   {
+    "why": "Not enough liquidity, migrationThreshold: 1725545454545 amountLeft: 261",
+    "count": 1
+   },
+   {
+    "why": "Not enough liquidity, migrationThreshold: 458000000000 amountLeft: 77",
+    "count": 1
+   }
+  ],
+  "programReasons": [
+   {
+    "why": "InvalidTokenSupply",
+    "count": 12
+   }
+  ],
+  "supplyRule": {
+   "refused": 12,
+   "refusedAndShort": 12,
+   "stored": 284,
+   "storedAndShort": 0,
+   "shortByMin": 2,
+   "shortByMax": 614971,
+   "shortByMaxTokens": 0.019286
+  }
+ },
+ "other": {
+  "name": "SDK 2.0 branch at f960aff",
+  "designs": 600,
+  "refusedBySdk": 297,
+  "refusedByProgram": 0,
+  "stored": 303,
+  "storedAsDerived": 303,
+  "storedDifferently": 0,
+  "storedMigrationBaseOnly": 0,
+  "worstInitialCapError": 0.0000013923799724313568,
+  "worstMigrationCapError": 5.696282886491488e-7,
+  "migrationCapOff": 0,
+  "withMarketCaps": 185,
+  "byBuilder": [
+   {
+    "builder": "buildCurve",
+    "designs": 93,
+    "refusedBySdk": 34,
+    "refusedByProgram": 0,
+    "stored": 59
+   },
+   {
+    "builder": "buildCurveWithMarketCap",
+    "designs": 94,
+    "refusedBySdk": 33,
+    "refusedByProgram": 0,
+    "stored": 61
+   },
+   {
+    "builder": "buildCurveWithTwoSegments",
+    "designs": 94,
+    "refusedBySdk": 58,
+    "refusedByProgram": 0,
+    "stored": 36
+   },
+   {
+    "builder": "buildCurveWithMidPrice",
+    "designs": 100,
+    "refusedBySdk": 63,
+    "refusedByProgram": 0,
+    "stored": 37
+   },
+   {
+    "builder": "buildCurveWithLiquidityWeights",
+    "designs": 104,
+    "refusedBySdk": 53,
+    "refusedByProgram": 0,
+    "stored": 51
+   },
+   {
+    "builder": "buildCurveWithCustomSqrtPrices",
+    "designs": 115,
+    "refusedBySdk": 56,
+    "refusedByProgram": 0,
+    "stored": 59
+   }
+  ],
+  "sdkReasons": [
+   {
+    "why": "Mint authority token update options are only supported for transfer-hook configs",
+    "count": 77
+   },
+   {
+    "why": "totalDuration must be at least numberOfPeriod",
+    "count": 54
+   },
+   {
+    "why": "leftover is too small to cover the migration base rounding",
+    "count": 50
+   },
+   {
+    "why": "At least 1000 bps of migrated liquidity must be locked at day 1, got 0 bps",
+    "count": 42
+   },
+   {
+    "why": "midPrice does not give a two-segment curve with positive liquidity",
+    "count": 23
+   },
+   {
+    "why": "no mid price gives a two-segment curve with positive liquidity",
+    "count": 19
+   },
+   {
+    "why": "Math operation overflow",
+    "count": 7
+   },
+   {
+    "why": "At least 1000 bps of migrated liquidity must be locked at day 1, got 300 bps",
+    "count": 5
+   },
+   {
+    "why": "At least 1000 bps of migrated liquidity must be locked at day 1, got 400 bps",
+    "count": 4
+   },
+   {
+    "why": "At least 1000 bps of migrated liquidity must be locked at day 1, got 500 bps",
+    "count": 3
+   },
+   {
+    "why": "At least 1000 bps of migrated liquidity must be locked at day 1, got 700 bps",
+    "count": 3
+   },
+   {
+    "why": "At least 1000 bps of migrated liquidity must be locked at day 1, got 200 bps",
+    "count": 2
+   },
+   {
+    "why": "migration base, locked vesting and leftover exceed the total supply",
+    "count": 2
+   },
+   {
+    "why": "At least 1000 bps of migrated liquidity must be locked at day 1, got 800 bps",
+    "count": 2
+   },
+   {
+    "why": "At least 1000 bps of migrated liquidity must be locked at day 1, got 600 bps",
+    "count": 2
+   },
+   {
+    "why": "At least 1000 bps of migrated liquidity must be locked at day 1, got 100 bps",
+    "count": 1
+   },
+   {
+    "why": "Migration creator fee percentage must be 0 when migration fee percentage is 0",
+    "count": 1
+   }
+  ],
+  "programReasons": [],
+  "supplyRule": {
+   "refused": 0,
+   "refusedAndShort": 0,
+   "stored": 303,
+   "storedAndShort": 0,
+   "shortByMin": 0,
+   "shortByMax": 0,
+   "shortByMaxTokens": 0
+  }
+ },
+ "cross": {
+  "sdk -> sdk": 290,
+  "stored -> stored": 283,
+  "program -> sdk": 6,
+  "sdk -> stored": 14,
+  "program -> stored": 6,
+  "stored -> sdk": 1
+ },
+ "lost": [
+  {
+   "n": 365,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 45.56,
+   "error": "no mid price gives a two-segment curve with positive liquidity"
+  }
+ ],
+ "truncated": [
+  {
+   "n": 17,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 16.55,
+   "error": 0.03437499998344906
+  },
+  {
+   "n": 27,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 32.06,
+   "error": 0.0018749999988418864
+  },
+  {
+   "n": 28,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 12.13,
+   "error": 0.010833333329257178
+  },
+  {
+   "n": 51,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 27.81,
+   "error": 0.029999999996159765
+  },
+  {
+   "n": 60,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 9.091,
+   "error": 0.010111111110573834
+  },
+  {
+   "n": 65,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 8.182,
+   "error": 0.022749999999004178
+  },
+  {
+   "n": 72,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 30.9,
+   "error": 0.029999999984775094
+  },
+  {
+   "n": 79,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 20.69,
+   "error": 0.034499999985141416
+  },
+  {
+   "n": 82,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 5.455,
+   "error": 0.09099999999908492
+  },
+  {
+   "n": 83,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 22.76,
+   "error": 0.034545454542687315
+  },
+  {
+   "n": 92,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 30.9,
+   "error": 0.029999999756551432
+  },
+  {
+   "n": 106,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 11.36,
+   "error": 0.032727272724386136
+  },
+  {
+   "n": 128,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 38.63,
+   "error": 0.016578947358453
+  },
+  {
+   "n": 136,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 18.62,
+   "error": 0.034444444426366516
+  },
+  {
+   "n": 138,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 4.194,
+   "error": 0.048499999883028
+  },
+  {
+   "n": 156,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 22.76,
+   "error": 0.034545454544872234
+  },
+  {
+   "n": 160,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 27.81,
+   "error": 0.02999999993293856
+  },
+  {
+   "n": 170,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 13.64,
+   "error": 0.04923076922717495
+  },
+  {
+   "n": 173,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 8.021,
+   "error": 0.002624999989399024
+  },
+  {
+   "n": 176,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 12.81,
+   "error": 0.06749999999834921
+  },
+  {
+   "n": 191,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 31.2,
+   "error": 0.006451612900217674
+  },
+  {
+   "n": 222,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 30.9,
+   "error": 0.029999999985501402
+  },
+  {
+   "n": 231,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 15.09,
+   "error": 0.005999999998157701
+  },
+  {
+   "n": 232,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 27.81,
+   "error": 0.02999999993540703
+  },
+  {
+   "n": 234,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 7.899,
+   "error": 0.12842857140646946
+  },
+  {
+   "n": 241,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 21.45,
+   "error": 0.02142857142846255
+  },
+  {
+   "n": 245,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 25.86,
+   "error": 0.034399999988786956
+  },
+  {
+   "n": 246,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 12.64,
+   "error": 0.053333333332815425
+  },
+  {
+   "n": 260,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 5.455,
+   "error": 0.09099999979452789
+  },
+  {
+   "n": 262,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 38.63,
+   "error": 0.016578947368336205
+  },
+  {
+   "n": 264,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 30.9,
+   "error": 0.02999999999994829
+  },
+  {
+   "n": 269,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 41.42,
+   "error": 0.010243902393267446
+  },
+  {
+   "n": 279,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 16.95,
+   "error": 0.059374999991119726
+  },
+  {
+   "n": 288,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 7.273,
+   "error": 0.03899999992261671
+  },
+  {
+   "n": 296,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 7.784,
+   "error": 0.11199999998724786
+  },
+  {
+   "n": 308,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 22.76,
+   "error": 0.03454545454421676
+  },
+  {
+   "n": 315,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 20.69,
+   "error": 0.03449999992402564
+  },
+  {
+   "n": 324,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 18.54,
+   "error": 0.02999999974883405
+  },
+  {
+   "n": 334,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 9.091,
+   "error": 0.010111111109848414
+  },
+  {
+   "n": 336,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 18.87,
+   "error": 0.048333333230330844
+  },
+  {
+   "n": 362,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 20.69,
+   "error": 0.03449999999160447
+  },
+  {
+   "n": 365,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 45.56,
+   "error": 0.012444444443117986
+  },
+  {
+   "n": 366,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 23.88,
+   "error": 0.03826086956501995
+  },
+  {
+   "n": 367,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 33.99,
+   "error": 0.029999999996539906
+  },
+  {
+   "n": 373,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 16.64,
+   "error": 0.039999999997951674
+  },
+  {
+   "n": 375,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 27.81,
+   "error": 0.029999999996928928
+  },
+  {
+   "n": 388,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 23.09,
+   "error": 0.003913043478081413
+  },
+  {
+   "n": 399,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 10.37,
+   "error": 0.03699999999941772
+  },
+  {
+   "n": 419,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 8.182,
+   "error": 0.022749999992323078
+  },
+  {
+   "n": 423,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 9.091,
+   "error": 0.010111111088534797
+  },
+  {
+   "n": 425,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 14.58,
+   "error": 0.04142857142476575
+  },
+  {
+   "n": 428,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 5.455,
+   "error": 0.09099999998679076
+  },
+  {
+   "n": 443,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 20.69,
+   "error": 0.0344999999997635
+  },
+  {
+   "n": 456,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 11.36,
+   "error": 0.03272727272685705
+  },
+  {
+   "n": 466,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 25.86,
+   "error": 0.03439999999278598
+  },
+  {
+   "n": 472,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 22.76,
+   "error": 0.0345454545357724
+  },
+  {
+   "n": 481,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 8.182,
+   "error": 0.0227499999981966
+  },
+  {
+   "n": 482,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 33.99,
+   "error": 0.02999999999356051
+  },
+  {
+   "n": 490,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 11.36,
+   "error": 0.03272727272643583
+  },
+  {
+   "n": 491,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 12.79,
+   "error": 0.0658333333118748
+  },
+  {
+   "n": 494,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 13.64,
+   "error": 0.04923076922117864
+  },
+  {
+   "n": 504,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 31.35,
+   "error": 0.011290322575180145
+  },
+  {
+   "n": 508,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 5.455,
+   "error": 0.090999999996485
+  },
+  {
+   "n": 513,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 9.091,
+   "error": 0.010111111110584936
+  },
+  {
+   "n": 516,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 9.091,
+   "error": 0.010111111107763193
+  },
+  {
+   "n": 520,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 9.091,
+   "error": 0.010111111110759019
+  },
+  {
+   "n": 522,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 27.81,
+   "error": 0.029999999971159097
+  },
+  {
+   "n": 528,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 30.2,
+   "error": 0.006666666665744891
+  },
+  {
+   "n": 535,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 16.55,
+   "error": 0.03437499999892646
+  },
+  {
+   "n": 547,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 18.54,
+   "error": 0.029999999993425952
+  },
+  {
+   "n": 558,
+   "builder": "buildCurveWithTwoSegments",
+   "percentage": 9.136,
+   "error": 0.015111111108380593
+  },
+  {
+   "n": 598,
+   "builder": "buildCurveWithMidPrice",
+   "percentage": 41.42,
+   "error": 0.0102439024372587
+  }
+ ],
+ "truncationExplains": 72,
+ "createConfig2": {
+  "checkedAt": "2026-10-11T13:01:12.532Z",
+  "live": false,
+  "error": "InstructionFallbackNotFound"
+ }
+}

@@ -31,6 +31,7 @@ const load = (name) => (existsSync(join(root, "web/data", name)) ? JSON.parse(re
 const [ev, conf, lib, pkg] = [load("evidence.json"), load("conformance.json"), load("tapes.json"), JSON.parse(readFileSync(join(root, "package.json"), "utf8"))];
 const probe = load("probe.json");
 const corpus = load("corpus.json");
+const builders = load("builders.json");
 const int = (x) => Math.round(x).toLocaleString("en-US");
 const pct = (x, d = 0) => `${(100 * x).toFixed(d)}%`;
 const kinds = lib?.pumpfun?.kinds ?? {};
@@ -67,6 +68,10 @@ const figures = {
   probePools: int(probe?.pools ?? 0),
   probeExactOut: int(probe?.exactOut ?? 0),
   probeDisagreements: int(probe?.disagreements ?? 0),
+  buildersInputs: int(builders?.installed.designs ?? 0),
+  buildersRefusedOld: int(builders?.installed.refusedByProgram ?? 0),
+  buildersStoredNew: int(builders?.other.stored ?? 0),
+  buildersRefusedNew: int(builders?.other.refusedByProgram ?? 0),
   splitConfigs: int(ev?.totals.configsWhereClaimerIsNotReceiver ?? 0),
   splitShare: ev?.totals.configs ? pct((ev.totals.configsWhereClaimerIsNotReceiver ?? 0) / ev.totals.configs) : "n/a",
 };
@@ -90,6 +95,7 @@ const block = [
   `- **pump.fun, recorded ${figures.tapeDate}:** ${figures.soloGrads} of ${figures.grads} graduations that passed the check were one party buying the curve in the launch slot.`,
   `- **Engine against chain:** ${figures.confSwaps} real swaps in ${figures.confPools} pools and ${figures.confKinds} kinds of config replay to the lamport. ${figures.confOld} more pools were traded under older builds of the program and differ exactly where the program has since changed; they are counted as mismatches and explained under "Found on the way".`,
   ...(probe?.simulations ? [`- **Engine against the program itself:** ${int(probe.swaps)} swaps simulated against the live program on ${int(probe.pools)} open pools, ${int(probe.exactOut)} of them exact-out (a swap nobody makes on mainnet, so no history can check it), ${int(probe.disagreements)} disagreements.`] : []),
+  ...(builders?.installed.designs ? [`- **Builders against the program:** ${figures.buildersInputs} random inputs through the SDK's six curve builders, each result simulated against the live program. It refused ${figures.buildersRefusedOld} of the configs SDK 1.5.13 returned and ${figures.buildersRefusedNew === "0" ? "none" : figures.buildersRefusedNew} of the ${figures.buildersStoredNew} the 2.0 branch returned.`] : []),
   `- **Shelf:** ${figures.tapes} tapes: ${figures.dbcTapes} DBC pools read from the chain and ${figures.pumpTapes} pump.fun launches, picked from ${figures.pumpPassed} that passed the fit check. Of ${figures.pumpConsidered} pump.fun launches recorded, ${figures.pumpShort} had under 12 orders and ${figures.pumpMisfit} failed the check.`,
 ].join("\n");
 // And the findings that carry figures.
@@ -119,12 +125,45 @@ const probed = probe?.simulations
       `- **Fee schedules mid-run.** An old pool's schedule has run out, so ${int(probe.timed)} of the transactions went to ${int(probe.timedPools)} pools whose schedule was still running. No pool with a live rate limiter was found to ask.`,
     ].join("\n")
   : "The probe has not been run for this build.";
+// And the section on what the program does with what the curve builders build.
+const built = (() => {
+  if (!builders?.installed.designs) return "The builder run is not part of this build.";
+  const a = builders.installed;
+  const b = builders.other;
+  const x = builders.cross;
+  const marketCap = a.byBuilder.find((r) => r.builder === "buildCurveWithMarketCap")?.refusedByProgram ?? 0;
+  const worst = (v) => (v < 1e-4 ? `${(100 * v).toFixed(5)}%` : `${(100 * v).toFixed(1)}%`);
+  const lost = (builders.lost ?? []).map((l) => `\`${l.builder}\`${l.percentage && !Number.isInteger(l.percentage) ? ` at ${l.percentage}% of supply, which 1.5.13 had quietly solved for ${Math.floor(l.percentage)}%` : ""}: "${l.error}"`);
+  const c2 = builders.createConfig2;
+  return [
+    `Run on ${builders.generatedAt.slice(0, 10)} against the live program, the same ${int(a.designs)} inputs through both:`,
+    "",
+    `| | ${a.name} (npm) | ${b.name} |`,
+    "|---|---|---|",
+    `| Refused by the SDK before anything is sent | ${int(a.refusedBySdk)} | ${int(b.refusedBySdk)} |`,
+    `| Built by the SDK, refused by the program | ${int(a.refusedByProgram)} | ${int(b.refusedByProgram)} |`,
+    `| Stored by the program | ${int(a.stored)} | ${int(b.stored)} |`,
+    `| of those, exactly as the SDK's own helpers derive | ${int(a.storedAsDerived)} | ${int(b.storedAsDerived)} |`,
+    `| Built from market caps and stored | ${int(a.withMarketCaps)} | ${int(b.withMarketCaps)} |`,
+    `| of those, migrating more than 0.1% off the cap asked for | ${int(a.migrationCapOff)} | ${int(b.migrationCapOff)} |`,
+    `| Worst gap between the migration cap asked for and the one stored | ${worst(a.worstMigrationCapError)} | ${worst(b.worstMigrationCapError)} |`,
+    "",
+    `Two causes in 1.5.13, showing up three ways, account for everything the program refused or stored differently, and the 2.0 changelog lists both as changed. What this run adds is the live program's side of it.`,
+    "",
+    `- **A migration fee and no leftover.** 1.5.13 sizes the token supply from the migration quote amount rounded down; the program rounds it up. With no leftover to absorb the difference the config comes out short by ${a.supplyRule.shortByMaxTokens < 1 ? "less than one token" : "a few tokens"} (between ${int(a.supplyRule.shortByMin)} and ${int(a.supplyRule.shortByMax)} of its smallest units) and the program refuses it: \`InvalidTokenSupply\`, ${int(a.refusedByProgram)} times, ${int(marketCap)} of them from plain \`buildCurveWithMarketCap\`. Every one has a migration fee and a leftover of zero. The program's supply rule, applied offline to each builder result, predicts all ${int(a.supplyRule.refusedAndShort)} refusals and ${a.supplyRule.storedAndShort === 0 ? "none" : int(a.supplyRule.storedAndShort)} of the ${int(a.supplyRule.stored)} acceptances (\`supplyShortfall\` in \`src/builders.ts\`). Given the same ${int(a.refusedByProgram)} inputs, 2.0 builds a config the program stores for ${int(x["program -> stored"] ?? 0)} and refuses the other ${int(x["program -> sdk"] ?? 0)} itself, with "leftover is too small to cover the migration base rounding".`,
+    `- **The same rounding in what is stored.** In ${int(a.storedMigrationBaseOnly)} of the configs the program stored for 1.5.13, its migration base differs from the one 1.5.13's helpers give. Each has a migration fee, the migration base is the only field that differs, and rounding the quote amount up closes the gap. For 2.0 all ${int(b.stored)} stored configs equal the SDK's derivation field by field: curve, fees, migration price, migration base, swap amount, supply.`,
+    `- **A fractional \`percentageSupplyOnMigration\`.** In 1.5.13, \`buildCurveWithTwoSegments\` and \`buildCurveWithMidPrice\` take the base amount from \`new BN(percentage)\`, which drops the fraction, and the quote amount from the exact figure. Ask for 20.69% of supply on migration and the config migrates at 20.69 / 20, or 3.45%, above the market cap that was asked for; the program stores it without complaint. ${int(a.migrationCapOff)} stored configs are off this way, by up to ${(100 * a.worstMigrationCapError).toFixed(1)}%, and percentage / floor(percentage) explains ${builders.truncationExplains === builders.truncated.length ? "every one" : `${int(builders.truncationExplains)} of them`} to five decimal places. 2.0 keeps the fraction.`,
+    "",
+    `Also seen: 2.0 turned ${int(x["sdk -> stored"] ?? 0)} inputs that 1.5.13 refuses into configs the program stores, and refused ${int(x["stored -> sdk"] ?? 0)} that 1.5.13 had built${lost.length ? ` (${lost.join("; ")})` : ""}.${c2 && !c2.live ? ` \`create_config2\`, the instruction 2.0's \`createConfigAndPool\` uses, was not on mainnet when this ran (asked on ${c2.checkedAt.slice(0, 10)}, the program answers \`${c2.error}\`), so both sets went through \`createConfig\`.` : " Both sets went through \`createConfig\`."}`,
+  ].join("\n");
+})();
 const readme = join(root, "README.md");
 writeFileSync(
   readme,
   readFileSync(readme, "utf8")
     .replace(/<!-- figures:start -->[\s\S]*<!-- figures:end -->/, `<!-- figures:start -->\n${block}\n<!-- figures:end -->`)
     .replace(/<!-- found:start -->[\s\S]*<!-- found:end -->/, `<!-- found:start -->\n${found}\n<!-- found:end -->`)
-    .replace(/<!-- probe:start -->[\s\S]*<!-- probe:end -->/, `<!-- probe:start -->\n${probed}\n<!-- probe:end -->`),
+    .replace(/<!-- probe:start -->[\s\S]*<!-- probe:end -->/, `<!-- probe:start -->\n${probed}\n<!-- probe:end -->`)
+    .replace(/<!-- builders:start -->[\s\S]*<!-- builders:end -->/, `<!-- builders:start -->\n${built}\n<!-- builders:end -->`),
 );
 console.log("site written to docs/", figures);

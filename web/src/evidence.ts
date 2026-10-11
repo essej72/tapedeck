@@ -47,7 +47,11 @@ const X_MAX = 2;
 /** src/probe.ts: swaps simulated against the live program, because nobody has made them on mainnet. */
 export type ProbeSummary = { generatedAt: string; simulations: number; pools: number; kinds: number; swaps: number; exactOut: number; refusals: number; vaults: number; timed?: number; disagreements: number };
 
-export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib: Library | null, probe: ProbeSummary | null = null): void {
+type BuilderRun = { name: string; designs: number; refusedBySdk: number; refusedByProgram: number; stored: number; storedAsDerived: number; migrationCapOff: number; worstMigrationCapError: number };
+/** src/builders.ts: random inputs through the SDK's curve builders, and what the live program did with the results. */
+export type BuildersSummary = { generatedAt: string; installed: BuilderRun; other: BuilderRun };
+
+export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib: Library | null, probe: ProbeSummary | null = null, builders: BuildersSummary | null = null): void {
   if (ev) {
     const t = ev.totals;
     const covered = t.pools - t.poolsUnderUnknownConfigs;
@@ -185,6 +189,15 @@ export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib
   if (probe?.simulations) {
     $("probe-lede").textContent = `History can only check the swaps people have made, and nobody makes exact-out swaps on mainnet. So the deck's engine was also checked against the program itself: ${int(probe.simulations)} transactions were built for ${int(probe.pools)} open pools (${int(probe.kinds)} kinds of config) and simulated by a public RPC node against the live program, with nothing signed or sent. The program answered ${int(probe.swaps)} swaps, ${int(probe.exactOut)} of them exact-out, with and without a referral, from one token unit up to the last token on the curve, and refused ${int(probe.refusals)} (one token more than the curve holds, or a buy of one unit more than the curve takes). The engine gave the same answer every time: every field of every swap, the pool account left behind, and the same refusals. In ${int(probe.vaults)} of them the two vaults' balances were read too, and they moved by exactly what the pool's books say.${probe.timed ? ` ${int(probe.timed)} were asked while the pool's fee schedule was still running.` : ""} Disagreements: ${int(probe.disagreements)}.`;
   } else $("probe-block").hidden = true;
+
+  if (builders?.installed.designs) {
+    const a = builders.installed;
+    const b = builders.other;
+    $("builders-lede").textContent =
+      `A launchpad does not write a config by hand: it calls one of the SDK's curve builders and sends what comes back. So the builders were put before the live program as well. ${int(a.designs)} random inputs went through all six of them and on through createConfig, and a public node simulated each transaction (${builders.generatedAt.slice(0, 10)}; nothing signed or sent). ` +
+      `With ${a.name}, the program refused ${int(a.refusedByProgram)} of the ${int(a.refusedByProgram + a.stored)} configs the builders returned, each short on supply by less than one token because of one rounding, and ${int(a.migrationCapOff)} of the configs it stored migrate at up to ${(100 * a.worstMigrationCapError).toFixed(0)}% above the market cap that was asked for, because two builders drop the fraction of a percentage. ` +
+      `With the ${b.name}, the program refused ${b.refusedByProgram === 0 ? "none" : int(b.refusedByProgram)} of ${int(b.refusedByProgram + b.stored)} and stored ${b.storedAsDerived === b.stored ? "every one" : int(b.storedAsDerived)} exactly as the SDK derives it. The README has the detail and the commands.`;
+  } else $("builders-block").hidden = true;
 
   if (lib) {
     const pf = lib.pumpfun;

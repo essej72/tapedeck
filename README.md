@@ -27,6 +27,7 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 - **pump.fun, recorded 2026-10-10 to 2026-10-11:** 78 of 121 graduations that passed the check were one party buying the curve in the launch slot.
 - **Engine against chain:** 186,352 real swaps in 666 pools and 77 kinds of config replay to the lamport. 7 more pools were traded under older builds of the program and differ exactly where the program has since changed; they are counted as mismatches and explained under "Found on the way".
 - **Engine against the program itself:** 5,169 swaps simulated against the live program on 521 open pools, 3,969 of them exact-out (a swap nobody makes on mainnet, so no history can check it), 0 disagreements.
+- **Builders against the program:** 600 random inputs through the SDK's six curve builders, each result simulated against the live program. It refused 12 of the configs SDK 1.5.13 returned and none of the 303 the 2.0 branch returned.
 - **Shelf:** 84 tapes: 24 DBC pools read from the chain and 60 pump.fun launches, picked from 561 that passed the fit check. Of 1,206 pump.fun launches recorded, 584 had under 12 orders and 61 failed the check.
 <!-- figures:end -->
 
@@ -46,7 +47,8 @@ Then it is held to the chain:
 - The deck does the same check live, in the browser, for any pool you paste. The browser build reads accounts and events from the IDL alone (no Anchor); it is tested against the SDK's Anchor coder on 160 real config accounts and 470 real events.
 - `node src/dryrun.ts` builds the `create_config` transaction for the deck's built-in designs and for 150 random settings of its form, and has a node simulate each against the live program. 126 were accepted, and every one was stored field for field as the deck derives it (start price, migration price and base threshold included); the other 27 the SDK's own validation had already refused (under 10% of liquidity locked), which the deck shows as an error. The program refused none.
 - `node src/probe.ts run` asks the live program about swaps nobody has made (exact-out), by simulation, and compares its answers with the engine's. See below.
-- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes, a spread of the simulated swaps, 24 designs with the account the program stored for each, and the awkward histories: swaps recorded with the older event, pools from older builds of the program, a history with a hole.
+- `node src/builders.ts run` puts random inputs through the SDK's six curve builders and asks the live program what it makes of each result. See below.
+- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes, a spread of the simulated swaps, 24 designs with the account the program stored for each, the program's answers to 37 builder results, and the awkward histories: swaps recorded with the older event, pools from older builds of the program, a history with a hole.
 
 ## Check an SDK build against mainnet
 
@@ -99,6 +101,41 @@ node src/probe.ts check --file probes.jsonl.gz --math data/sdk-math.mjs
 ```
 
 Limits: pools quoted in SOL or USDC only, no transfer-fee or transfer-hook tokens, and a simulation is one node's run of the program at one slot, not a landed transaction.
+
+### Configs the builders build
+
+A launchpad does not write a config by hand. It calls one of the SDK's six curve builders and sends what comes back, so a builder that returns something the program will not store, or stores as something else, is a failed launch. `src/builders.ts` gives the builders random inputs (both token programs, 6 to 9 decimals, SOL and USDC quotes, flat and scheduled fees, migration fees, liquidity splits, vesting, leftover), sends each result through `createConfig`, and has a public node simulate the transaction against the live program. Nothing is signed or sent. It works with the installed SDK or with any checkout of it:
+
+```bash
+node scripts/bundle-sdk.mjs <path to the SDK package> data/sdk.mjs
+node src/builders.ts run 600 --out data/builders-1513.jsonl
+node src/builders.ts run 600 --sdk data/sdk.mjs --out data/builders-2.jsonl
+node src/builders.ts compare data/builders-1513.jsonl data/builders-2.jsonl data/sdk.mjs "SDK 2.0 branch"
+```
+
+<!-- builders:start -->
+Run on 2026-10-11 against the live program, the same 600 inputs through both:
+
+| | SDK 1.5.13 (npm) | SDK 2.0 branch at f960aff |
+|---|---|---|
+| Refused by the SDK before anything is sent | 304 | 297 |
+| Built by the SDK, refused by the program | 12 | 0 |
+| Stored by the program | 284 | 303 |
+| of those, exactly as the SDK's own helpers derive | 156 | 303 |
+| Built from market caps and stored | 174 | 185 |
+| of those, migrating more than 0.1% off the cap asked for | 72 | 0 |
+| Worst gap between the migration cap asked for and the one stored | 12.8% | 0.00006% |
+
+Two causes in 1.5.13, showing up three ways, account for everything the program refused or stored differently, and the 2.0 changelog lists both as changed. What this run adds is the live program's side of it.
+
+- **A migration fee and no leftover.** 1.5.13 sizes the token supply from the migration quote amount rounded down; the program rounds it up. With no leftover to absorb the difference the config comes out short by less than one token (between 2 and 614,971 of its smallest units) and the program refuses it: `InvalidTokenSupply`, 12 times, 6 of them from plain `buildCurveWithMarketCap`. Every one has a migration fee and a leftover of zero. The program's supply rule, applied offline to each builder result, predicts all 12 refusals and none of the 284 acceptances (`supplyShortfall` in `src/builders.ts`). Given the same 12 inputs, 2.0 builds a config the program stores for 6 and refuses the other 6 itself, with "leftover is too small to cover the migration base rounding".
+- **The same rounding in what is stored.** In 128 of the configs the program stored for 1.5.13, its migration base differs from the one 1.5.13's helpers give. Each has a migration fee, the migration base is the only field that differs, and rounding the quote amount up closes the gap. For 2.0 all 303 stored configs equal the SDK's derivation field by field: curve, fees, migration price, migration base, swap amount, supply.
+- **A fractional `percentageSupplyOnMigration`.** In 1.5.13, `buildCurveWithTwoSegments` and `buildCurveWithMidPrice` take the base amount from `new BN(percentage)`, which drops the fraction, and the quote amount from the exact figure. Ask for 20.69% of supply on migration and the config migrates at 20.69 / 20, or 3.45%, above the market cap that was asked for; the program stores it without complaint. 72 stored configs are off this way, by up to 12.8%, and percentage / floor(percentage) explains every one to five decimal places. 2.0 keeps the fraction.
+
+Also seen: 2.0 turned 14 inputs that 1.5.13 refuses into configs the program stores, and refused 1 that 1.5.13 had built (`buildCurveWithTwoSegments` at 45.56% of supply, which 1.5.13 had quietly solved for 45%: "no mid price gives a two-segment curve with positive liquidity"). `create_config2`, the instruction 2.0's `createConfigAndPool` uses, was not on mainnet when this ran (asked on 2026-10-11, the program answers `InstructionFallbackNotFound`), so both sets went through `createConfig`.
+<!-- builders:end -->
+
+Limits: 600 inputs is a sample, not a proof; half of them are turned away by the SDK's own validation before they reach the program (the generator is deliberately loose); SOL and USDC quotes only, no transfer-fee or transfer-hook configs, and DAMM v2 migration only, since the SDK no longer builds the others.
 
 ## From the deck to mainnet
 
@@ -161,6 +198,7 @@ npm run build
 | `src/flows/history.ts`, `chain.ts`, `chaintape.ts`, `dbc.ts` | Pool histories from the chain, verified and turned into tapes |
 | `src/flows/pumpfun.ts`, `tapes.ts`, `pack.ts`, `library.ts` | pump.fun tapes: collect, turn trades into orders, check, pack |
 | `src/validate.ts`, `src/conformance.ts`, `src/probe.ts` | Engine against chain: one pool, every kind of config, and swaps nobody has made (by simulation) |
+| `src/builders.ts`, `scripts/bundle-sdk.mjs` | The SDK's curve builders against the program: random inputs, any SDK checkout, what the program refuses and what it stores |
 | `web/` | The deck, the evidence page, the pitch page |
 | `test/` | Offline tests on frozen mainnet data |
 
