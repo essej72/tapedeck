@@ -31,11 +31,19 @@ export function replayFixture(f: Fixture, math: QuoteMath = SDK_MATH): Verdict {
     for (const e of tx.events) {
       if (e.name !== "evtSwap2" || e.data.pool !== f.pool) continue;
       const d = e.data as { tradeDirection: number; hasReferral: boolean; swapParameters: { amount0: string; swapMode: number }; swapResult: Record<string, string>; quoteReserveAmount: string; currentTimestamp: string };
-      const fill = sim.swap(d.tradeDirection, new BN(d.swapParameters.amount0), { point: new BN(bySlot ? tx.slot : d.currentTimestamp), timestamp: new BN(d.currentTimestamp) }, {
-        mode: d.swapParameters.swapMode as SwapMode,
-        hasReferral: d.hasReferral,
-        firstSwapInCreateTx: i === created,
-      });
+      let fill;
+      try {
+        fill = sim.swap(d.tradeDirection, new BN(d.swapParameters.amount0), { point: new BN(bySlot ? tx.slot : d.currentTimestamp), timestamp: new BN(d.currentTimestamp) }, {
+          mode: d.swapParameters.swapMode as SwapMode,
+          hasReferral: d.hasReferral,
+          firstSwapInCreateTx: i === created,
+        });
+      } catch (e) {
+        // Today's math refuses a swap the chain recorded. That is a disagreement in its own right (so far the cause has
+        // been a swap that only an older build of the program allowed), and nothing after it can be replayed.
+        mismatches.push(`swap ${swaps + 1} ${tx.sig.slice(0, 8)}: the engine refuses it (${e instanceof Error ? e.message : String(e)}); the chain recorded it`);
+        return { swaps, mismatches, finalChecked: false };
+      }
       swaps++;
       const got: Record<string, string> = {
         includedFeeInputAmount: fill.amountIn.toString(),

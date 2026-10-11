@@ -26,7 +26,7 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 - **Where it costs 10% or more:** 2.7% of 438,317 pools did.
 - **pump.fun, recorded 2026-10-10 to 2026-10-11:** 78 of 121 graduations that passed the check were one party buying the curve in the launch slot.
 - **Engine against chain:** 116,724 real swaps replayed across 355 pools and 50 kinds of config, 0 mismatches.
-- **Engine against the program itself:** 5,163 swaps simulated against the live program on 399 open pools, 3,969 of them exact-out (a swap nobody makes on mainnet, so no history can check it), 0 disagreements.
+- **Engine against the program itself:** 5,169 swaps simulated against the live program on 521 open pools, 3,969 of them exact-out (a swap nobody makes on mainnet, so no history can check it), 0 disagreements.
 - **Shelf:** 84 tapes: 24 DBC pools read from the chain and 60 pump.fun launches, picked from 561 that passed the fit check. Of 1,206 pump.fun launches recorded, 584 had under 12 orders and 61 failed the check.
 <!-- figures:end -->
 
@@ -72,19 +72,19 @@ What the corpus covers: 54,496 buys and 62,228 sells; 108,351 exact-in swaps and
 Exact-out swaps are in the program and in the SDK, but there are none in those histories and none among 6,376 swaps in a sample of the program's most recent transactions (11 October, `src/hunt.ts`). History cannot check a swap nobody makes, so `src/probe.ts` asks the program itself. It builds the swap for a real open pool and has a public RPC node simulate it against the live program (`simulateTransaction` with signature checks off: nothing is signed, nothing is sent, there is no key). The trader in the simulation is a large exchange wallet standing in as payer, which any funded address can when signatures are not checked; nothing touches it. The program's own `EvtSwap2`, the pool account it leaves behind and the two vault balances are then compared with what the engine predicts from the pool account before.
 
 <!-- probe:start -->
-Run on 2026-10-11: 399 open pools (262 quoted in SOL, 137 in USDC), 84 kinds of config, 204 of them pools nobody had traded yet.
+Run on 2026-10-11: 521 open pools (334 quoted in SOL, 187 in USDC), 84 kinds of config, 266 of them pools nobody had traded yet.
 
 | Math | Simulated transactions | Swaps the program answered | Refusals | Disagreements |
 |---|---|---|---|---|
-| SDK 1.5.13 (npm) | 3,578 | 5,163, of them 3,969 exact-out | 404 | 0 |
-| SDK 2.0 branch at `bdfe680`, `706bd11` and `ffde81d` | the same 3,578 | the same | the same | 0 at each |
+| SDK 1.5.13 (npm) | 3,735 | 5,169, of them 3,969 exact-out | 555 | 0 |
+| SDK 2.0 branch at `bdfe680`, `706bd11` and `ffde81d` | the same 3,735 | the same | the same | 0 at each |
 | An exact-out quote one lamport too high (a check that the check works) | 2,378 with an exact-out swap | | | flagged in 2,378 |
 
-Each pool is asked nine things: a control (an exact-in buy and sell, which history already proves, so a mismatch there would be the harness); exact-out buys of 0.2%, 15%, 60% and 85% of what is left on the curve, each followed by an exact-out sell, half of them with a referral (1,590 swaps); one token unit; one unit of the quote token; the last token on the curve; and one token more than the curve holds.
+398 of the pools were asked nine things: a control (an exact-in buy and sell, which history already proves, so a mismatch there would be the harness); exact-out buys of 0.2%, 15%, 60% and 85% of what is left on the curve, each followed by an exact-out sell, half of them with a referral (1,590 swaps); one token unit; one unit of the quote token; the last token on the curve; and one token more than the curve holds. A tenth question was added later and put to 157 pools: an exact-in buy of one unit of quote more than it takes to reach the migration price. Today's program refuses it whole in 151 of them and lets rounding absorb it in the other 6, and the engine gives the same answer each time. Older builds let such a buy run on past the migration price (see "Found on the way").
 
 - **Every field agrees**: amount in, amount out, next price, trading, protocol and referral fee, and afterwards the pool account itself: reserves, every fee bucket, the volatility tracker.
 - **Refusals agree.** One token past the end of the curve is `InsufficientLiquidity` or `AmountLeftIsNotZero` in the program and an error in the SDK (396 cases). Buying exactly what is left completes the curve in 382 pools; in the 8 where the program refuses it, the SDK refuses it too.
-- **The books match the vaults.** In all 3,174 transactions the program accepted, each vault's balance moved by exactly the change in the pool's reserve plus its fee buckets.
+- **The books match the vaults.** In all 3,180 transactions the program accepted, each vault's balance moved by exactly the change in the pool's reserve plus its fee buckets.
 - **Dust rounds toward the pool.** No swap was free of fee. One unit of the quote token buys nothing in 327 of 398 pools and is kept as fee.
 - **Fee schedules mid-run.** An old pool's schedule has run out, so 90 of the transactions went to 10 pools whose schedule was still running. No pool with a live rate limiter was found to ask.
 <!-- probe:end -->
@@ -185,6 +185,7 @@ npm run build
 <!-- found:start -->
 - **How far a known SDK bug reaches.** In SDK 1.5.13, `StateService.getPoolConfigsByOwner(owner)` filters `PoolConfig` accounts at byte offset 72, which is `leftover_receiver`; `fee_claimer` is at offset 40. I ran into it while indexing; the SDK team had opened a fix the same day ([PR #124](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/124)). What the census adds is the size of it: on 2026-10-10, 200,278 of 543,738 configs on mainnet (37%) had a fee claimer different from their leftover receiver, and 1.5.13 does not return those for their fee claimer. Reproduced on mainnet: fee claimer `7AdYv1gs9xhmg87Xyh84ryHrfht4khVvBLSbDqkMTwrm` owns three configs and the call returns none.
 - **Slot-based fee schedules run faster than the Invent config says.** Its comments size them at 0.4 s a slot. Block times sampled 100,000 slots apart on 2026-10-10 give 0.219 s a slot, so a schedule written as "60 seconds" in slots lasts about 33. Designs made here count in seconds (timestamp activation).
+- **The program has changed how a curve can be finished, and old histories show it.** In a continued run after the corpus was cut, three pools turned up that the engine refuses to replay. Each was completed in October 2025 by a single exact-in buy of the migration threshold plus one lamport (config `2CY1F7f3…`, 21,045 pools), and that last lamport ran past the migration price onto the curve's thin tail segment. Today's program stops an exact-in buy at the migration price and refuses it whole with `InsufficientLiquidity`, and the SDK does the same. Asked by simulation, the live program refuses that buy on two open pools of the same config. A history like that is reported as a disagreement, not skipped.
 - **The SDK (1.5.12 and later) no longer builds rate-limiter configs**, so the deck does not offer them for new designs. Configs that already use one still load and play: 45 rate-limiter pools (801 swaps) are in the conformance run, without a mismatch.
 <!-- found:end -->
 

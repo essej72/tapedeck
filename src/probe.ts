@@ -39,6 +39,8 @@ import { PROGRAM_ID } from "./layout.ts";
 import { Rpc, RPC_URL } from "./rpc.ts";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
+// `--only <text>` asks just the questions whose name contains the text (to add a new question to a finished run).
+const ONLY = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : "";
 export const PROBES = resolve(ROOT, "data/probes.jsonl");
 const SOL = NATIVE_MINT.toBase58();
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -266,6 +268,9 @@ function plans(t: Target, now: Clock): { label: string; steps: Step[]; wrap: BN 
   // Dust: the smallest amounts there are, where rounding decides everything.
   out.push({ label: "exact-out, one unit", wrap, steps: [step(TradeDirection.QuoteToBase, SwapMode.ExactOut, new BN(1), wrap, false)] });
   out.push({ label: "exact-in, one lamport", wrap, steps: [step(TradeDirection.QuoteToBase, SwapMode.ExactIn, new BN(1), new BN(0), false)] });
+  // One unit of quote more than it takes to reach the migration price, as an exact-in buy. Older builds of the
+  // program let such a buy run on past the migration price; today it is refused whole unless rounding absorbs it.
+  out.push({ label: "exact-in, one unit more than the curve takes", wrap, steps: [step(TradeDirection.QuoteToBase, SwapMode.ExactIn, maxCost.addn(1), new BN(0), false)] });
   // The last token on the curve, and one more than the curve holds.
   out.push({ label: "exact-out, all that is left", wrap, steps: [step(TradeDirection.QuoteToBase, SwapMode.ExactOut, maxOut, wrap, false)] });
   out.push({ label: "exact-out, one past the end", wrap, steps: [step(TradeDirection.QuoteToBase, SwapMode.ExactOut, maxOut.addn(1), wrap, false)] });
@@ -413,7 +418,7 @@ async function probePool(rpc: Rpc, pool: string, kind: string, payer: PublicKey,
     const all = plans({ ...t, pre }, { point: new BN(config.activationType === 0 ? slot : now), timestamp: new BN(now) }).filter((p) => p.wrap.lt(new BN(String(Math.floor(budget / 2)))));
     return { all, about: { slot, timestamp: now } };
   };
-  const labels = planned(first).all.map((p) => p.label);
+  const labels = planned(first).all.map((p) => p.label).filter((l) => !ONLY || l.includes(ONLY));
   if (!labels.length) console.log(`  ${pool.slice(0, 8)} left out: nothing left on its curve, or it costs more than the stand-in holds`);
   const probes: Probe[] = [];
   let dropped = 0;
@@ -618,6 +623,7 @@ async function check(file: string, mathPath?: string): Promise<void> {
     const off: QuoteMath = { ...SDK_MATH, getSwapResultFromExactOutput: (...a) => ({ ...SDK_MATH.getSwapResultFromExactOutput(...a), includedFeeInputAmount: SDK_MATH.getSwapResultFromExactOutput(...a).includedFeeInputAmount.addn(1) }) };
     const last = all.filter((p) => p.label === "exact-out, all that is left");
     const lamport = all.filter((p) => p.label === "exact-in, one lamport" && p.events.length);
+    const over = all.filter((p) => p.label === "exact-in, one unit more than the curve takes");
     const timedPools = new Set(all.filter((p) => scheduleRunning(bytes(p.configData), Number(decodePool(bytes(p.pre)).poolState.activationPoint), readConfig(bytes(p.configData)).activationType === 0 ? p.slot : p.timestamp)).map((p) => p.pool));
     const quoteOf = (p: Probe) => (readConfig(bytes(p.configData)).quoteMint === USDC ? "usdc" : "sol");
     const summary = {
@@ -638,6 +644,9 @@ async function check(file: string, mathPath?: string): Promise<void> {
       lamportBuys: lamport.length,
       lamportBuysNothing: lamport.filter((p) => events(p)[0].swapResult.outputAmount === "0").length,
       feeFree: all.reduce((n, p) => n + events(p).filter((e) => BigInt(e.swapResult.tradingFee) + BigInt(e.swapResult.protocolFee) + BigInt(e.swapResult.referralFee) === 0n).length, 0),
+      fullPools: new Set(all.filter((p) => p.label === "control exact-in").map((p) => p.pool)).size,
+      overshootAsked: over.length,
+      overshootRefused: over.filter((p) => p.refusedAt !== null).length,
       vaults: tally.vaults,
       timed: tally.timed,
       timedPools: timedPools.size,
@@ -676,7 +685,7 @@ if (import.meta.main) {
     const rpc = new Rpc(RPC_URL, 450);
     const { payer, funds } = await findPayer(rpc);
     const tally = new Tally();
-    for (const pool of process.argv.slice(3)) await probePool(rpc, pool, "", payer, funds, tally);
+    for (const pool of process.argv.slice(3).filter((a) => !a.startsWith("--") && a !== ONLY)) await probePool(rpc, pool, "", payer, funds, tally);
     console.log(tally.line());
   }
   else if (cmd === "fresh") await fresh(Number(arg) || 20);
