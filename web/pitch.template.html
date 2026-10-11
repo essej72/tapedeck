@@ -68,7 +68,7 @@
         <li><b>Side B</b> flies the same orders through any config: one built with the SDK's own curve builders, or any config on mainnet, loaded by address. Every buyer spends the same SOL at the same moment; every seller sells the same share of what they hold by then. The ledger shows who paid and who collected, cohort by cohort, under each.</li>
         <li><b>Any pool:</b> paste a DBC pool address. Its transactions are fetched in your browser, every swap is replayed against the events the program emitted, and the pool goes on the deck.</li>
         <li><b>REC</b> gives you a paper wallet. Your orders go onto the tape at the moment you press, and the rest of the launch trades against the price you left behind.</li>
-        <li>A config you like leaves as a file for Meteora's Invent CLI.</li>
+        <li>A config you like leaves as a file for Meteora's Invent CLI, or goes to mainnet from the deck: it asks the live program whether it takes the design (a simulation, no wallet), then creates the config from your own wallet.</li>
       </ul>
       <p>The shelf holds {{tapes}} tapes: {{dbcTapes}} DBC pools read from the chain and {{pumpTapes}} pump.fun launches recorded wallet by wallet.</p>
     </div></div>
@@ -80,6 +80,7 @@
         <div><b class="tb">{{pumpFit}}</b><span>worst gap between replayed and recorded tokens on nine buys in ten, on any pump.fun tape on the shelf</span></div>
       </div>
       <p>Do not take the number on trust: paste a pool of your own into the deck and it runs the same check in front of you.</p>
+      <p>History only covers the swaps people make, and nobody makes exact-out swaps. So those were put to the program itself: {{probeSims}} transactions simulated against the live program on {{probePools}} open pools, {{probeExactOut}} exact-out swaps, {{probeDisagreements}} disagreements. Nothing signed, nothing sent.</p>
       <p>Prices and fees come from Meteora's SDK. Around them the engine does what the program does and the SDK leaves out: the volatility tracker before and after each swap, the fee buckets, the minimum-fee first swap, completion at the threshold. A pump.fun tape is kept only if a DBC config equal to pump.fun's curve reproduces its recorded fills: of {{pumpConsidered}} recorded, {{pumpShort}} were too short to play, {{pumpMisfit}} failed the check and {{pumpPassed}} passed.</p>
     </div></div>
   </section>

@@ -60,6 +60,10 @@ const figures = {
   pumpShort: int(lib?.pumpfun.tooShort ?? 0),
   pumpMisfit: int(lib?.pumpfun.misfit ?? 0),
   pumpPassed: int(lib?.pumpfun.passed ?? 0),
+  probeSims: int(probe?.simulations ?? 0),
+  probePools: int(probe?.pools ?? 0),
+  probeExactOut: int(probe?.exactOut ?? 0),
+  probeDisagreements: int(probe?.disagreements ?? 0),
   splitConfigs: int(ev?.totals.configsWhereClaimerIsNotReceiver ?? 0),
   splitShare: ev?.totals.configs ? pct((ev.totals.configsWhereClaimerIsNotReceiver ?? 0) / ev.totals.configs) : "n/a",
 };
