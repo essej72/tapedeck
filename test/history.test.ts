@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { CONFIG, off } from "../src/layout.ts";
 import { replayFixture, type Fixture } from "../src/validate.ts";
 
 const load = (path: string) => JSON.parse(readFileSync(new URL(`fixtures/${path}.json`, import.meta.url), "utf8")) as Fixture;
@@ -28,6 +29,18 @@ test("a swap made while the maximum fee was 50% disagrees with today's math on t
   // May 2025, before program release 0.1.3 raised the maximum fee to 99%: base fee plus dynamic fee was capped.
   const v = replayFixture(load("old-program/4jwc1YPpLjzPUUFYPMsFzJK65Z2iUP6UkLsx8kRUvhV3"));
   assert.ok(v.mismatches.some((m) => /swap 2 .* tradingFee: engine 80003464 chain 80000000/.test(m)), v.mismatches.join("\n"));
+});
+
+test("a pool whose token charges a transfer fee (program 0.2.2) is declined, not replayed as if it did not", () => {
+  const plain = load("pools/J5fhQreaKwHvKAz6tsdvEc4WEygPpeCGNruFK1NmVsd6");
+  const data = Buffer.from(plain.configData, "base64");
+  // where 0.2.2 keeps the fee: basis points, two options and a flag, in the first bytes of the old padding
+  const at = off(CONFIG, "padding_0");
+  data.writeUInt16LE(250, at);
+  data[at + 4] = 1;
+  const v = replayFixture({ ...plain, configData: data.toString("base64") });
+  assert.equal(v.swaps, 0);
+  assert.match(v.skipped ?? "", /transfer fee \(2\.5%\)/);
 });
 
 test("a history with a hole in it is not replayed at all", () => {

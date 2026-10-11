@@ -22,6 +22,8 @@ const base64 = (s: string): Uint8Array => Uint8Array.from(atob(s), (c) => c.char
 export function replayFixture(f: Fixture, math: QuoteMath = SDK_MATH): Verdict {
   if (f.holes) return { swaps: 0, mismatches: [], finalChecked: false, skipped: `${f.holes} of its transactions could not be read with their events from any endpoint, so the history has holes` };
   const config = configFromBytes(base64(f.configData));
+  // Swaps of a token that charges a transfer fee (program 0.2.2) put less on the curve than the amount in the event.
+  if (config.transferFeeFlag) return { swaps: 0, mismatches: [], finalChecked: false, skipped: `its token charges a transfer fee (${config.transferFeeBasisPoints / 100}%), which the replay does not model yet` };
   const created = f.txs.findIndex((tx) => tx.events.some((e) => e.name === "evtInitializePool" && e.data.pool === f.pool));
   if (created < 0) return { swaps: 0, mismatches: [], finalChecked: false, skipped: "history does not reach the pool's creation" };
   const init = f.txs[created].events.find((e) => e.name === "evtInitializePool")!;

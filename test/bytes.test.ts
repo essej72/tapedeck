@@ -37,8 +37,13 @@ test(`configFromBytes matches the SDK coder on ${configs.length} mainnet configs
     flat(decodeConfig(data), "", theirs);
     for (const [k, v] of mine) {
       if (k === "quoteMintAddress" || k === "feeClaimerAddress") continue;
+      // read from what the installed SDK still calls padding: program 0.2.2 puts a base-mint transfer fee there
+      if (k === "transferFeeBasisPoints" || k === "transferFeeFlag") continue;
       assert.equal(v, theirs.get(k), `${c.address} ${k}`);
     }
+    // no config made before 0.2.2 has a transfer fee: a non-zero byte here would turn a real pool away
+    assert.equal(mine.get("transferFeeFlag"), "0", c.address);
+    assert.equal(mine.get("transferFeeBasisPoints"), "0", c.address);
     assert.equal(mine.get("quoteMintAddress"), theirs.get("quoteMint"), c.address);
     assert.deepEqual(walkAway(configFromBytes(data)), walkAway(decodeConfig(data)), c.address);
   }

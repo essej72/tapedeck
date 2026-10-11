@@ -45,6 +45,7 @@ export async function loadPoolFromChain(address: string, custom: string, say: (t
       const configData = await account(pool.config);
       if (!configData) throw new Error("the pool's config account could not be read");
       const config = configFromBytes(bytes(configData));
+      if (config.transferFeeFlag) return { tape: null, verdict: { swaps: 0, mismatches: [], finalChecked: false }, summary: `This pool's token charges a transfer fee of ${config.transferFeeBasisPoints / 100}% on every move. The deck does not replay those yet, so it was not loaded.` };
       const history = await fetchHistory(address, { url: ep.url, decode: decodeEvent, lanes: ep.lanes, gapMs: ep.gapMs, maxTx: MAX_TX, onProgress: (done, total) => say(`Fetching transactions from ${ep.name}: ${int(done)} of ${int(total)}…`) });
       if (history.holes.length) {
         last = `this endpoint could not return ${int(history.holes.length)} of the pool's transactions with their events, so the history has holes`;

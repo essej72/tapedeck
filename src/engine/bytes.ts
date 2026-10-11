@@ -49,7 +49,8 @@ export function poolFromBytes(data: Uint8Array): LoadedPool {
   };
 }
 
-export type LoadedConfig = PoolConfig & { quoteMintAddress: string; feeClaimerAddress: string };
+/** `transferFeeFlag`, `transferFeeBasisPoints`: a transfer fee on the base mint, which program 0.2.2 introduces. */
+export type LoadedConfig = PoolConfig & { quoteMintAddress: string; feeClaimerAddress: string; transferFeeFlag: number; transferFeeBasisPoints: number };
 
 export function configFromBytes(data: Uint8Array): LoadedConfig {
   const d = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
@@ -68,10 +69,15 @@ export function configFromBytes(data: Uint8Array): LoadedConfig {
     frequency: u32(`${prefix}.frequency`),
     cliffDurationFromMigrationTime: u32(`${prefix}.cliff_duration_from_migration_time`),
   });
+  // Program 0.2.2 gives the first five bytes of this padding to a transfer fee on the base mint: basis points (u16),
+  // two options, then a flag. An IDL that already names the fields puts them at the same place.
+  const transferFeeAt = CONFIG.fields.has("transfer_fee_basis_points") ? o("transfer_fee_basis_points") : o("padding_0");
   const curveAt = o("curve");
   const curve = Array.from({ length: 20 }, (_, i) => ({ sqrtPrice: u128at(curveAt + i * 32), liquidity: u128at(curveAt + i * 32 + 16) }));
   return {
     quoteMintAddress: key("quote_mint"),
+    transferFeeBasisPoints: d.readUInt16LE(transferFeeAt),
+    transferFeeFlag: d[transferFeeAt + 4],
     feeClaimerAddress: key("fee_claimer"),
     poolFees: {
       baseFee: {
