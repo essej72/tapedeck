@@ -580,6 +580,26 @@ export function mountDeck(lib: { tapes: PackedTape[]; slotSeconds: number }, pre
       status.textContent = "Could not reach the clipboard here. inventConfig() in the repo writes the same file.";
     }
   };
+  // A link that opens the deck as it stands: the tape (a pool that is not on the shelf is fetched again by whoever
+  // opens it) and Side B (a design by name, a config on mainnet by address, or the form's settings).
+  const linkHere = (): string => {
+    const q = new URLSearchParams();
+    if (!blind) q.set("tape", packed.id);
+    const real = presets.find((x) => `real:${x.hash}` === presetSelect.value);
+    if (loaded) q.set("config", real ? real.address : $<HTMLInputElement>("load-address").value.trim());
+    else q.set("b", presetSelect.value in BUILT_IN ? presetSelect.value : JSON.stringify(custom));
+    return `${location.origin}${location.pathname}?${q}`;
+  };
+  $("btn-link").onclick = async () => {
+    const status = $("link-status");
+    const url = linkHere();
+    try {
+      await navigator.clipboard.writeText(url);
+      status.textContent = "Copied. Whoever opens it gets this tape and this Side B.";
+    } catch {
+      status.textContent = url;
+    }
+  };
   // A config created from here is read back from the chain like any other, so Side B then flies the stored account.
   mountMainnet(
     () => (loaded ? null : specOf(custom)),
@@ -667,5 +687,35 @@ export function mountDeck(lib: { tapes: PackedTape[]; slotSeconds: number }, pre
   // The DBC tape with the most traders if there is one: a real pool, replayed exactly. Otherwise a contested pump.fun launch.
   const busiest = (xs: PackedTape[]) => [...xs].sort((a, b) => b.wallets - a.wallets)[0];
   const first = busiest(lib.tapes.filter((t) => t.config)) ?? busiest(lib.tapes.filter((t) => t.kind === "contested graduation")) ?? lib.tapes[0];
-  loadTape(first, false);
+  // ---- or on what a link asks for (see linkHere) ----
+  const query = new URLSearchParams(location.search);
+  const wantedTape = query.get("tape");
+  const onShelf = lib.tapes.find((t) => t.id === wantedTape);
+  loadTape(onShelf ?? first, false);
+  const b = query.get("b");
+  if (b && b in BUILT_IN) {
+    presetSelect.value = b;
+    choosePreset(b);
+  } else if (b) {
+    try {
+      const asked = JSON.parse(b) as Partial<Custom>;
+      // only the form's own settings, and only values of the kind the form holds
+      for (const k of Object.keys(custom) as (keyof Custom)[]) if (typeof asked[k] === typeof custom[k]) (custom[k] as unknown) = asked[k];
+      presetSelect.value = "custom";
+      choosePreset("custom");
+    } catch {
+      // not a design: keep the default
+    }
+  }
+  const address = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+  const wantedConfig = query.get("config");
+  if (wantedConfig && address.test(wantedConfig)) {
+    $<HTMLInputElement>("load-address").value = wantedConfig;
+    $("btn-load").click();
+  }
+  if (wantedTape && !onShelf && address.test(wantedTape)) {
+    $<HTMLDetailsElement>("pool-loader").open = true;
+    $<HTMLInputElement>("pool-address").value = wantedTape;
+    $("btn-pool").click();
+  }
 }

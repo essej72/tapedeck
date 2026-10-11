@@ -10,6 +10,7 @@ A **tape** is a real launch, order by order: who bought, who sold, when, how muc
 - **Side B** flies the same orders through any config: one you design (through the SDK's own curve builders) or any config on mainnet, loaded by address. Every buyer spends the same amount at the same moment, every seller sells the same share of what they hold by then. A ledger shows who paid and who collected under each.
 - **Any pool.** Paste a DBC pool address and the deck fetches its transactions in your browser, replays every swap against the events the program emitted, tells you whether they match, and puts the pool on the deck with its own config as Side A.
 - **REC** hands you a paper wallet. Your orders go onto the tape at the moment you press, and the rest of the launch trades against the price you left behind.
+- **Links.** "Copy a link" gives a URL that opens the deck on the same tape and the same Side B, for a pool on the shelf or any other: [this launch, replayed under a 90% launch fee that decays over two minutes](https://essej72.github.io/tapedeck/?tape=GER1Q3HZyGqT9s7nW2eme4Ct2oCGkbxYap9nL6oyCBR4&b=%7B%22start%22%3A90%2C%22end%22%3A2%2C%22secs%22%3A120%7D).
 - A config you like leaves as a file for Meteora's [Invent CLI](https://github.com/MeteoraAg/meteora-invent), or goes **straight to mainnet**: the deck asks the live program whether it takes the design (a simulation, no wallet needed), then creates the config from your own wallet.
 
 Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Crypto World's Fair 2026.
