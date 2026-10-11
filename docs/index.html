@@ -145,6 +145,13 @@
         <button class="key wide" id="btn-export" type="button">Copy as Meteora Invent config</button>
         <span id="export-status" class="muted small" role="status"></span>
       </div>
+      <details class="load" id="mainnet">
+        <summary class="engraved">Put this config on mainnet</summary>
+        <p class="muted small">First ask the live program whether it takes this design: a simulation, no wallet needed. Then create it from your own wallet, which pays the rent for one account and becomes its fee claimer. This page never holds a wallet key.</p>
+        <button class="key wide" id="btn-ask" type="button">1. Ask the program (nothing signed)</button>
+        <button class="key wide" id="btn-create" type="button">2. Create it with my wallet</button>
+        <span id="mainnet-status" class="muted small" role="status"></span>
+      </details>
       <details class="load">
         <summary class="engraved">Load a config from mainnet</summary>
         <label class="field stack"><span>Config address</span><input id="load-address" type="text" spellcheck="false" autocomplete="off" placeholder="a PoolConfig account"></label>

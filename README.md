@@ -10,7 +10,7 @@ A **tape** is a real launch, order by order: who bought, who sold, when, how muc
 - **Side B** flies the same orders through any config: one you design (through the SDK's own curve builders) or any config on mainnet, loaded by address. Every buyer spends the same amount at the same moment, every seller sells the same share of what they hold by then. A ledger shows who paid and who collected under each.
 - **Any pool.** Paste a DBC pool address and the deck fetches its transactions in your browser, replays every swap against the events the program emitted, tells you whether they match, and puts the pool on the deck with its own config as Side A.
 - **REC** hands you a paper wallet. Your orders go onto the tape at the moment you press, and the rest of the launch trades against the price you left behind.
-- A config you like leaves as a file for Meteora's [Invent CLI](https://github.com/MeteoraAg/meteora-invent).
+- A config you like leaves as a file for Meteora's [Invent CLI](https://github.com/MeteoraAg/meteora-invent), or goes **straight to mainnet**: the deck asks the live program whether it takes the design (a simulation, no wallet needed), then creates the config from your own wallet.
 
 Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Crypto World's Fair 2026.
 
@@ -44,8 +44,9 @@ Then it is held to the chain:
 - `node src/conformance.ts pick && node src/conformance.ts run` does that for pools spread over every combination of fee mode, fee token, activation type, first-swap setting and quote token in use on mainnet.
 - A pump.fun tape goes on the shelf only if a DBC config equal to pump.fun's curve returns the recorded number of tokens on every curve buy.
 - The deck does the same check live, in the browser, for any pool you paste. The browser build reads accounts and events from the IDL alone (no Anchor); it is tested against the SDK's Anchor coder on 160 real config accounts and 470 real events.
+- `node src/dryrun.ts` builds the `create_config` transaction for the deck's built-in designs and for 150 random settings of its form, and has a node simulate each against the live program. 126 were accepted, and every one was stored field for field as the deck derives it (start price, migration price and base threshold included); the other 27 the SDK's own validation had already refused (under 10% of liquidity locked), which the deck shows as an error. The program refused none.
 - `node src/probe.ts run` asks the live program about swaps nobody has made (exact-out), by simulation, and compares its answers with the engine's. See below.
-- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes, and a spread of the simulated swaps.
+- `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes, a spread of the simulated swaps, and 24 designs with the account the program stored for each.
 
 ## Check an SDK build against mainnet
 
@@ -94,6 +95,15 @@ node src/probe.ts check --file probes.jsonl.gz --math data/sdk-math.mjs
 
 Limits: pools quoted in SOL only, no transfer-fee or transfer-hook tokens, and a simulation is one node's run of the program at one slot, not a landed transaction.
 
+## From the deck to mainnet
+
+Under Side B's settings, "Put this config on mainnet" has two steps.
+
+1. **Ask the program.** The deck builds the SDK's `createConfig` transaction for the design on Side B and has a public RPC node simulate it against the live program with signature checks off. It reports whether the program accepts it, the rent, and whether the account it would store equals the config Side B has been flying. No wallet, nothing signed, nothing sent.
+2. **Create it with your wallet** (Phantom, Solflare or Backpack). Your wallet is the payer, the fee claimer and the leftover receiver. The deck rehearses the transaction with your wallet as payer first, then hands it to the wallet to approve: one account, about 0.006 SOL of rent. Once the network confirms, the new config is read back from the chain and loaded onto Side B like any other mainnet config.
+
+The page never holds a wallet key. The only key it makes is the new account's own, which has to co-sign its creation and is discarded. Step 1 and the rehearsal are what `src/dryrun.ts` runs in bulk; step 2 has been exercised up to the wallet's approval prompt with a stand-in wallet (the transaction that reaches the wallet carries a live blockhash and the new account's signature), and a declined prompt sends nothing.
+
 ## Run it
 
 Node 24 or newer. No API keys, no build step for the scripts (Node runs the TypeScript directly).
@@ -109,7 +119,7 @@ The site is static (`docs/`). It works from GitHub Pages or any file host.
 
 ## Rebuild the data
 
-Everything comes from public sources: the public mainnet RPC, a second keyless RPC for transaction history, and pump.fun's public trade feed. All reads, nothing signed, nothing sent.
+Everything comes from public sources: the public mainnet RPC, a second keyless RPC for transaction history, and pump.fun's public trade feed. All reads, nothing signed, nothing sent. (The one thing in the project that can send a transaction is the deck's "create it with my wallet" step, and only the visitor's wallet can sign it.)
 
 ```bash
 node src/census/pull.ts pools       # every VirtualPool account (about 15 minutes, paced)
@@ -137,14 +147,15 @@ npm run build
 | `src/engine/pool.ts` | One virtual pool, advanced swap by swap the way the program does it, on the SDK's math |
 | `src/engine/replay.ts` | A session: fly a tape through a config, on the curve and then in the migrated pool; take orders that are not on the tape |
 | `src/engine/buyout.ts` | The cost of faking a graduation under a config |
-| `src/engine/design.ts` | A design as SDK builder input, as stored config, and as an Invent CLI file |
+| `src/engine/design.ts`, `presets.ts` | A design as SDK builder input, as stored config, and as an Invent CLI file; the deck's own designs |
+| `src/deploy.ts`, `src/dryrun.ts` | The `create_config` transaction for a design, a dry run against the live program, and the comparison of what it would store |
 | `src/engine/bytes.ts`, `src/events.ts`, `src/layout.ts` | Accounts and events read from the IDL alone, for the browser |
 | `src/engine/verify.ts` | Replay a pool's history against its own events and report every difference |
 | `src/engine/amm.ts` | The migrated pool: exact migration amounts, constant-product trading |
 | `src/census/` | The whole-chain census and the design table |
 | `src/flows/history.ts`, `chain.ts`, `chaintape.ts`, `dbc.ts` | Pool histories from the chain, verified and turned into tapes |
 | `src/flows/pumpfun.ts`, `tapes.ts`, `pack.ts`, `library.ts` | pump.fun tapes: collect, turn trades into orders, check, pack |
-| `src/validate.ts`, `src/conformance.ts` | Engine against chain, from the command line and across every kind of config |
+| `src/validate.ts`, `src/conformance.ts`, `src/probe.ts` | Engine against chain: one pool, every kind of config, and swaps nobody has made (by simulation) |
 | `web/` | The deck, the evidence page, the pitch page |
 | `test/` | Offline tests on frozen mainnet data |
 
@@ -155,7 +166,9 @@ npm run build
 - **The IDL** shipped with the SDK for account layouts and event decoding. Offsets are derived, not typed in.
 - **Program accounts** read directly: every `PoolConfig` and `VirtualPool` on mainnet.
 - **Program events** (`EvtInitializePool`, `EvtSwap2`, `EvtCurveComplete`) as the ground truth for replays.
-- **Invent CLI** as the way out: Side B exports a `dbc_config` file, dry run on.
+- **Invent CLI** as one way out: Side B exports a `dbc_config` file, dry run on.
+- **`createConfig`** as the other: the SDK's own transaction, simulated against the program and then signed by the visitor's wallet.
+- **`swap2`** in simulation, to get the program's own answer for swaps no history contains.
 
 ## Limits
 
