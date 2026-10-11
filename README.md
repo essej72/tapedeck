@@ -14,7 +14,7 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 
 **[Open the deck](https://essej72.github.io/tapedeck/)** · **[Pitch](https://essej72.github.io/tapedeck/pitch.html)** · **[Evidence](https://essej72.github.io/tapedeck/#evidence)**
 
-![A real DBC pool on the deck: Side A as recorded, Side B through a config with a decaying launch fee](web/img/deck.jpg)
+![Tapedeck playing a real DBC pool, switching Side B's config, a pump.fun buyout, paper trading, and the evidence chart](web/img/demo.gif)
 
 ## What it found
 
