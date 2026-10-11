@@ -1,5 +1,7 @@
 # Tapedeck
 
+[![test](https://github.com/essej72/tapedeck/actions/workflows/test.yml/badge.svg)](https://github.com/essej72/tapedeck/actions/workflows/test.yml)
+
 Play back any Meteora DBC launch. Fly it again under a different config. Or take the stick and trade it yourself. On an engine that is checked against the chain.
 
 A **tape** is a real launch, order by order: who bought, who sold, when, how much. The deck plays it on two sides.
