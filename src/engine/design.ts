@@ -59,6 +59,7 @@ export function deriveConfig(p: ConfigParameters): PoolConfig {
     migrationFeePercentage: p.migrationFee.feePercentage,
     creatorMigrationFeePercentage: p.migrationFee.creatorFeePercentage,
     migratedPoolFeeBps: p.migratedPoolFee?.poolFeeBps ?? 0,
+    migratedCollectFeeMode: p.migratedPoolFee?.collectFeeMode ?? 0,
     partnerLiquidityPercentage: p.partnerLiquidityPercentage,
     partnerPermanentLockedLiquidityPercentage: p.partnerPermanentLockedLiquidityPercentage,
     creatorLiquidityPercentage: p.creatorLiquidityPercentage,

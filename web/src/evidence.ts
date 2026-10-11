@@ -33,6 +33,8 @@ export type Evidence = {
   designs: DesignRow[];
 };
 /** `total.pools` and `total.swaps` count the pools that agree on every swap; `disagree` lists the ones that do not. */
+/** src/migration.ts: completed pools followed across their migration. */
+export type MigrationSummary = { migrated: number; agree: number; dammV2: number; dammV1: number; asModelled: number; dynamicFee: number };
 export type Conformance = { generatedAt: string; total: { pools: number; swaps: number; older?: number; mismatches: number; finals: number; disagreeing?: number }; kinds: { kind: string; pools: number; swaps: number; mismatches: number }[]; disagree?: { pool: string; kind: string; swaps: number; first: string }[] };
 
 /** A design has no name on chain. Say what can be said: a registered partner name, or how its mints present themselves. */
@@ -51,7 +53,7 @@ type BuilderRun = { name: string; designs: number; refusedBySdk: number; refused
 /** src/builders.ts: random inputs through the SDK's curve builders, and what the live program did with the results. */
 export type BuildersSummary = { generatedAt: string; installed: BuilderRun; other: BuilderRun };
 
-export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib: Library | null, probe: ProbeSummary | null = null, builders: BuildersSummary | null = null): void {
+export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib: Library | null, probe: ProbeSummary | null = null, builders: BuildersSummary | null = null, migration: MigrationSummary | null = null): void {
   if (ev) {
     const t = ev.totals;
     const covered = t.pools - t.poolsUnderUnknownConfigs;
@@ -189,6 +191,10 @@ export function mountEvidence(ev: Evidence | null, conf: Conformance | null, lib
   if (probe?.simulations) {
     $("probe-lede").textContent = `History can only check the swaps people have made, and nobody makes exact-out swaps on mainnet. So the deck's engine was also checked against the program itself: ${int(probe.simulations)} transactions were built for ${int(probe.pools)} open pools (${int(probe.kinds)} kinds of config) and simulated by a public RPC node against the live program, with nothing signed or sent. The program answered ${int(probe.swaps)} swaps, ${int(probe.exactOut)} of them exact-out, with and without a referral, from one token unit up to the last token on the curve, and refused ${int(probe.refusals)} (one token more than the curve holds, or a buy of one unit more than the curve takes). The engine gave the same answer every time: every field of every swap, the pool account left behind, and the same refusals. In ${int(probe.vaults)} of them the two vaults' balances were read too, and they moved by exactly what the pool's books say.${probe.timed ? ` ${int(probe.timed)} were asked while the pool's fee schedule was still running.` : ""} Disagreements: ${int(probe.disagreements)}.`;
   } else $("probe-block").hidden = true;
+
+  if (migration?.migrated) {
+    $("migration-lede").textContent = `The check does not stop where the curve does. ${int(migration.migrated)} of those pools have migrated (${int(migration.dammV2)} to DAMM v2, ${int(migration.dammV1)} to DAMM v1), and in ${migration.agree === migration.migrated ? "every one" : int(migration.agree)} the tokens that moved into the new pool's vaults and the price the pool opened at are what the engine says, to the unit. After that the deck trades in a model of the pool: full-range constant product at the config's fee. ${int(migration.asModelled)} of the ${int(migration.dammV2)} DAMM v2 pools opened as exactly that; the rest have DAMM v2's dynamic fee, a fee schedule or compounding on top, which the deck does not apply.`;
+  } else $("migration-lede").hidden = true;
 
   if (builders?.installed.designs) {
     const a = builders.installed;

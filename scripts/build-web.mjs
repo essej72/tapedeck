@@ -32,6 +32,7 @@ const [ev, conf, lib, pkg] = [load("evidence.json"), load("conformance.json"), l
 const probe = load("probe.json");
 const corpus = load("corpus.json");
 const builders = load("builders.json");
+const migration = load("migration.json");
 const int = (x) => Math.round(x).toLocaleString("en-US");
 const pct = (x, d = 0) => `${(100 * x).toFixed(d)}%`;
 const kinds = lib?.pumpfun?.kinds ?? {};
@@ -95,6 +96,7 @@ const block = [
   `- **pump.fun, recorded ${figures.tapeDate}:** ${figures.soloGrads} of ${figures.grads} graduations that passed the check were one party buying the curve in the launch slot.`,
   `- **Engine against chain:** ${figures.confSwaps} real swaps in ${figures.confPools} pools and ${figures.confKinds} kinds of config replay to the lamport. ${figures.confOld} more pools were traded under older builds of the program and differ exactly where the program has since changed; they are counted as mismatches and explained under "Found on the way".`,
   ...(probe?.simulations ? [`- **Engine against the program itself:** ${int(probe.swaps)} swaps simulated against the live program on ${int(probe.pools)} open pools, ${int(probe.exactOut)} of them exact-out (a swap nobody makes on mainnet, so no history can check it), ${int(probe.disagreements)} disagreements.`] : []),
+  ...(migration?.migrated ? [`- **Engine against migration:** in ${int(migration.agree)} of ${int(migration.migrated)} real migrations, the tokens that moved into the new pool and the price the pool opened at are what the engine says, to the unit.`] : []),
   ...(builders?.installed.designs ? [`- **Builders against the program:** ${figures.buildersInputs} random inputs through the SDK's six curve builders, each result simulated against the live program. It refused ${figures.buildersRefusedOld} of the configs SDK 1.5.13 returned and ${figures.buildersRefusedNew === "0" ? "none" : figures.buildersRefusedNew} of the ${figures.buildersStoredNew} the 2.0 branch returned.`] : []),
   `- **Shelf:** ${figures.tapes} tapes: ${figures.dbcTapes} DBC pools read from the chain and ${figures.pumpTapes} pump.fun launches, picked from ${figures.pumpPassed} that passed the fit check. Of ${figures.pumpConsidered} pump.fun launches recorded, ${figures.pumpShort} had under 12 orders and ${figures.pumpMisfit} failed the check.`,
 ].join("\n");
@@ -157,6 +159,13 @@ const built = (() => {
     `Also seen: 2.0 turned ${int(x["sdk -> stored"] ?? 0)} inputs that 1.5.13 refuses into configs the program stores, and refused ${int(x["stored -> sdk"] ?? 0)} that 1.5.13 had built${lost.length ? ` (${lost.join("; ")})` : ""}.${c2 && !c2.live ? ` \`create_config2\`, the instruction 2.0's \`createConfigAndPool\` uses, was not on mainnet when this ran (asked on ${c2.checkedAt.slice(0, 10)}, the program answers \`${c2.error}\`), so both sets went through \`createConfig\`.` : " Both sets went through \`createConfig\`."}`,
   ].join("\n");
 })();
+// What a completed curve hands to the migrated pool, and how far the model of that pool goes.
+const migrated = migration?.migrated
+  ? `- \`node src/migration.ts run\` follows every completed pool of that run across its migration: ${int(migration.completed)} pools, ${int(migration.migrated)} of them migrated (${int(migration.dammV2)} to DAMM v2, ${int(migration.dammV1)} to DAMM v1, ${int(migration.twoPositions)} with the liquidity split between two positions). In ${migration.agree === migration.migrated ? `all ${int(migration.migrated)}` : `${int(migration.agree)} of ${int(migration.migrated)}`}, the tokens that moved into the new pool's vaults and the price the new pool opened at are what the engine says, to the unit, and so is the protocol's cut in the ${int(migration.protocolCutShown)} pools whose account still shows it. It did not start that way: on the first run, on 11 October, the engine agreed in 57 of them. In 92 its token amount was one unit high, because the protocol's cut of the tokens is the base side of its quote cut and not 0.2% of the tokens. In 17 it took the protocol's 0.2% from pools that carry no such fee: the rate is kept on each pool account, and it is zero for every DAMM v1 migration here and for the oldest DAMM v2 ones. The other 13 had their liquidity split between two positions, which costs up to a lamport's worth of tokens, or were small enough for the rounding to show. All of that is fixed in \`src/engine/amm.ts\`, and ${int(36)} of the migrations are kept as a test.`
+  : "- The migration check has not been run for this build.";
+const afterwards = migration?.migrated
+  ? `- After migration the pool is modelled as full-range constant product with the config's fee rate, taken in quote or from the output token as the config says. Of the ${int(migration.dammV2)} DAMM v2 pools in the migration check, ${int(migration.asModelled)} opened as exactly that. The other ${int(migration.dammV2 - migration.asModelled)} did not: ${int(migration.dynamicFee)} have DAMM v2's dynamic fee on (all ${int(migration.fixedTierDynamic)} of the ${int(migration.fixedTier)} that use a fixed fee tier get it whatever their config says), ${int(migration.scheduledFee)} have a market-cap fee schedule and ${int(migration.compounding)} ${migration.compounding === 1 ? "is a compounding pool" : "are compounding pools"}. The deck applies none of those. Trading after migration is not replayed against DAMM v2's own swap events.`
+  : "- After migration the pool is modelled as full-range constant product with the config's fee rate. DAMM v2's dynamic fee and fee scheduler after migration are not applied.";
 const readme = join(root, "README.md");
 writeFileSync(
   readme,
@@ -164,6 +173,8 @@ writeFileSync(
     .replace(/<!-- figures:start -->[\s\S]*<!-- figures:end -->/, `<!-- figures:start -->\n${block}\n<!-- figures:end -->`)
     .replace(/<!-- found:start -->[\s\S]*<!-- found:end -->/, `<!-- found:start -->\n${found}\n<!-- found:end -->`)
     .replace(/<!-- probe:start -->[\s\S]*<!-- probe:end -->/, `<!-- probe:start -->\n${probed}\n<!-- probe:end -->`)
-    .replace(/<!-- builders:start -->[\s\S]*<!-- builders:end -->/, `<!-- builders:start -->\n${built}\n<!-- builders:end -->`),
+    .replace(/<!-- builders:start -->[\s\S]*<!-- builders:end -->/, `<!-- builders:start -->\n${built}\n<!-- builders:end -->`)
+    .replace(/<!-- migration:start -->[\s\S]*<!-- migration:end -->/, `<!-- migration:start -->\n${migrated}\n<!-- migration:end -->`)
+    .replace(/<!-- afterwards:start -->[\s\S]*<!-- afterwards:end -->/, `<!-- afterwards:start -->\n${afterwards}\n<!-- afterwards:end -->`),
 );
 console.log("site written to docs/", figures);

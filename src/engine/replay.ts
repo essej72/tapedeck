@@ -197,7 +197,8 @@ export class Session {
         onCurve = false;
         const r = buy ? this.amm.buy(amount) : this.amm.sell(amount);
         if (r.out.isZero()) throw new Error("dust");
-        fee = num(r.fee) / this.unit;
+        // a fee the pool takes in tokens is valued at the price the swap ended on, as on the curve
+        fee = (num(r.fee) * (r.feeOnBase ? this.amm.price : 1)) / this.unit;
         this.fees.pool += fee;
         if (buy) {
           this.tokens[wallet] = held.add(r.out);
@@ -241,7 +242,7 @@ export class Session {
           const change = buy ? amount.sub(f.amountIn) : new BN(0);
           if (this.amm && change.gtn(0)) {
             const r = this.amm.buy(change);
-            const poolFee = num(r.fee) / this.unit;
+            const poolFee = (num(r.fee) * (r.feeOnBase ? this.amm.price : 1)) / this.unit;
             this.fees.pool += poolFee;
             fee += poolFee;
             this.tokens[wallet] = this.tokens[wallet].add(r.out);
