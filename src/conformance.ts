@@ -5,16 +5,26 @@
 //   node src/conformance.ts run [kind]         # fetch each pool's history, replay it, record the verdict
 //                                              # (optionally only kinds containing the given text)
 //   node src/conformance.ts report             # totals by kind of config; writes web/data/conformance.json
+//   node src/conformance.ts export <file>      # the verified histories as one portable corpus (JSON lines, gzipped)
+//   node src/conformance.ts rerun [--corpus <file>] [--math <module.mjs>]
+//                                              # replay every history again, offline: from the local store or from
+//                                              # a corpus file, with the installed SDK's math or another build's.
+//                                              # This is how a release candidate is checked against mainnet history.
 //
 // A "kind" is the combination of settings that changes the swap path: base fee mode, dynamic fee, where the fee is
 // collected, slot or timestamp activation, the first-swap minimum fee, quote token.
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { pathToFileURL } from "node:url";
+import { gunzipSync, gzipSync } from "node:zlib";
 import bs58 from "bs58";
 import { readConfig } from "./census/fields.ts";
 import { CENSUS_DB } from "./census/pull.ts";
-import { openTapes, TX_RPC_URL } from "./flows/chain.ts";
+import { SDK_MATH, type QuoteMath } from "./engine/pool.ts";
+import { loadPool, openTapes, TX_RPC_URL } from "./flows/chain.ts";
+import type { ChainTx } from "./flows/history.ts";
 import { RPC_URL } from "./rpc.ts";
 import { buildFixture, replayFixture } from "./validate.ts";
 
@@ -144,9 +154,92 @@ function report(): void {
   writeFileSync(new URL("../web/data/conformance.json", import.meta.url), JSON.stringify({ generatedAt: new Date().toISOString(), total, kinds }));
 }
 
+type CorpusPool = { pool: string; kind: string; config: string; configData: string; txs: ChainTx[] };
+
+// The events a replay reads. EvtSwap repeats EvtSwap2, so it is left out of the corpus.
+const REPLAYED = new Set(["evtInitializePool", "evtSwap2", "evtCurveComplete"]);
+
+/** Every verified pool in the local store, with its config's bytes. */
+function* storedPools(): Generator<CorpusPool> {
+  const db = openTapes();
+  const census = new DatabaseSync(CENSUS_DB, { readOnly: true });
+  const configOf = census.prepare("SELECT data FROM configs WHERE address = ?");
+  const pools = new Map<string, string>();
+  for (const r of db.prepare("SELECT pool, kind FROM conformance WHERE state='done' AND swaps > 0 AND mismatches = 0").all()) pools.set(r.pool as string, r.kind as string);
+  if (db.prepare("SELECT name FROM sqlite_master WHERE name='dbc_tape'").get()) {
+    for (const r of db.prepare("SELECT pool, fixture FROM dbc_tape WHERE state='ok'").all()) {
+      if (!pools.has(r.pool as string)) pools.set(r.pool as string, kindOf(Buffer.from((JSON.parse(r.fixture as string) as { configData: string }).configData, "base64")));
+    }
+  }
+  for (const [pool, kind] of pools) {
+    const txs = loadPool(db, pool).map((tx) => ({ ...tx, events: tx.events.filter((e) => REPLAYED.has(e.name)).map(({ name, data }) => ({ name, data })) })).filter((tx) => tx.events.length);
+    const init = txs.flatMap((tx) => tx.events).find((e) => e.name === "evtInitializePool" && e.data.pool === pool);
+    const row = init && configOf.get(Buffer.from(bs58.decode(init.data.config as string)));
+    if (init && row) yield { pool, kind, config: init.data.config as string, configData: Buffer.from(row.data as Uint8Array).toString("base64"), txs };
+  }
+}
+
+function exportCorpus(file: string): void {
+  const lines: string[] = [];
+  let swaps = 0;
+  for (const p of storedPools()) {
+    swaps += p.txs.reduce((n, tx) => n + tx.events.filter((e) => e.name === "evtSwap2").length, 0);
+    lines.push(JSON.stringify(p));
+  }
+  const packed = gzipSync(lines.join("\n"), { level: 9 });
+  writeFileSync(file, packed);
+  console.log(`${lines.length} pools, ${swaps} swaps, ${(packed.length / 1e6).toFixed(1)} MB -> ${file}`);
+}
+
+/**
+ * Replay every verified history again without touching the network. `mathPath` is an ES module exporting
+ * getFeeMode and the three getSwapResultFrom* functions (another build of the SDK's math); `corpusPath` is a file
+ * written by `export`, used instead of the local store.
+ */
+async function rerun(opts: { mathPath?: string; corpusPath?: string }): Promise<void> {
+  let math: QuoteMath = SDK_MATH;
+  if (opts.mathPath) {
+    const mod = (await import(pathToFileURL(resolve(opts.mathPath)).href)) as Record<string, unknown>;
+    const names = ["getFeeMode", "getSwapResultFromExactInput", "getSwapResultFromPartialInput", "getSwapResultFromExactOutput"] as const;
+    for (const n of names) if (typeof mod[n] !== "function") throw new Error(`${opts.mathPath} does not export ${n}`);
+    math = Object.fromEntries(names.map((n) => [n, mod[n]])) as unknown as QuoteMath;
+  }
+  const pools: Iterable<CorpusPool> = opts.corpusPath
+    ? gunzipSync(readFileSync(opts.corpusPath)).toString("utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as CorpusPool)
+    : storedPools();
+  const total = { pools: 0, swaps: 0, mismatches: 0, poolsWithMismatch: 0 };
+  const byKind = new Map<string, { pools: number; swaps: number; mismatches: number; first: string }>();
+  const t0 = Date.now();
+  for (const p of pools) {
+    let v;
+    try {
+      v = replayFixture({ pool: p.pool, config: p.config, configData: p.configData, txs: p.txs, complete: true }, math);
+    } catch (e) {
+      v = { swaps: 0, mismatches: [`threw: ${e instanceof Error ? e.message : e}`], finalChecked: false };
+    }
+    total.pools++;
+    total.swaps += v.swaps;
+    total.mismatches += v.mismatches.length;
+    if (v.mismatches.length) total.poolsWithMismatch++;
+    const k = byKind.get(p.kind) ?? { pools: 0, swaps: 0, mismatches: 0, first: "" };
+    byKind.set(p.kind, { pools: k.pools + 1, swaps: k.swaps + v.swaps, mismatches: k.mismatches + v.mismatches.length, first: k.first || (v.mismatches[0] ? `${p.pool.slice(0, 8)} ${v.mismatches[0]}` : "") });
+  }
+  console.log(`math: ${opts.mathPath ?? "the installed SDK"}   histories: ${opts.corpusPath ?? "the local store"}   ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  console.log(`${total.pools} pools, ${total.swaps} swaps replayed, ${total.mismatches} mismatches in ${total.poolsWithMismatch} pools, ${byKind.size} kinds of config`);
+  for (const [kind, k] of [...byKind].sort((a, b) => b[1].mismatches - a[1].mismatches)) {
+    if (k.mismatches) console.log(`  ${String(k.pools).padStart(4)} pools ${String(k.swaps).padStart(7)} swaps ${String(k.mismatches).padStart(5)} mismatches  ${kind}\n       first: ${k.first}`);
+  }
+  if (total.mismatches) process.exitCode = 1;
+}
+
 const [cmd, arg] = process.argv.slice(2);
 if (cmd === "pick") pick(Number(arg) || 6);
 else if (cmd === "busy") busy(Number(arg) || 200);
 else if (cmd === "run") await run(arg);
 else if (cmd === "report") report();
-else console.log("usage: node src/conformance.ts pick [perKind] | busy [n] | run | report");
+else if (cmd === "export" && arg) exportCorpus(arg);
+else if (cmd === "rerun") {
+  const args = process.argv.slice(3);
+  const flag = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+  await rerun({ mathPath: flag("--math"), corpusPath: flag("--corpus") });
+} else console.log("usage: node src/conformance.ts pick [perKind] | busy [n] | run [kind] | report | export <file> | rerun [--corpus <file>] [--math <module.mjs>]");

@@ -23,7 +23,7 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 - **Where faking a graduation costs under 2% of the raise:** 84% of 1,131,326 pools completed their curve.
 - **Where it costs 10% or more:** 2.7% of 438,317 pools did.
 - **pump.fun, recorded 2026-10-10 to 2026-10-11:** 78 of 121 graduations that passed the check were one party buying the curve in the launch slot.
-- **Engine against chain:** 112,043 real swaps replayed across 348 pools and 50 kinds of config, 0 mismatches.
+- **Engine against chain:** 116,724 real swaps replayed across 355 pools and 50 kinds of config, 0 mismatches.
 - **Shelf:** 84 tapes: 24 DBC pools read from the chain and 60 pump.fun launches, picked from 561 that passed the fit check. Of 1,206 pump.fun launches recorded, 584 had under 12 orders and 61 failed the check.
 <!-- figures:end -->
 
@@ -42,6 +42,25 @@ Then it is held to the chain:
 - A pump.fun tape goes on the shelf only if a DBC config equal to pump.fun's curve returns the recorded number of tokens on every curve buy.
 - The deck does the same check live, in the browser, for any pool you paste. The browser build reads accounts and events from the IDL alone (no Anchor); it is tested against the SDK's Anchor coder on 160 real config accounts and 470 real events.
 - `npm test` runs the same checks offline on frozen mainnet data: pool histories of different config kinds, 160 real config accounts, 470 events, three pump.fun tapes.
+
+## Check an SDK build against mainnet
+
+The verified histories ship as one file, [`corpus.jsonl.gz`](https://github.com/essej72/tapedeck/releases/latest) (355 pools, 116,724 swaps, 50 kinds of config, events only, 20 MB). Any build of the SDK's swap math can be replayed through it, offline, in about a second:
+
+```bash
+node scripts/bundle-sdk-math.mjs ../dynamic-bonding-curve-sdk/packages/dynamic-bonding-curve
+node src/conformance.ts rerun --corpus corpus.jsonl.gz --math data/sdk-math.mjs
+```
+
+Run on 11 October 2026:
+
+| Math | Swaps replayed | Mismatches |
+|---|---|---|
+| SDK 1.5.13 (npm) | 116,724 | 0 |
+| SDK 2.0 branch, [PR #125](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/125) at `706bd11` | 116,724 | 0 |
+| The 2.0 math with one lamport added to every exact-in output (a check that the check works) | stops early | flagged in 326 of 354 pools |
+
+What the corpus covers: 54 thousand buys and 62 thousand sells; exact-in and partial-fill swaps (10 of them cut short at the migration price); 2,880 swaps with a referral; 220 swaps inside the pool-creation transaction; 80 curve completions; rate limiters, linear and exponential schedulers, the dynamic fee, fees in quote and in the output token, slot and timestamp activation. What it does not cover: exact-out swaps (none in these histories) and transfer-fee or transfer-hook tokens.
 
 ## Run it
 
@@ -117,7 +136,7 @@ npm run build
 ## Found on the way
 
 <!-- found:start -->
-- **A filter in the SDK looks at the wrong field.** `StateService.getPoolConfigsByOwner(owner)` ("Fetch all pool configs owned by a wallet") filters `PoolConfig` accounts at byte offset 72. That is `leftover_receiver`; `fee_claimer` is at offset 40. On 2026-10-10, 200,278 of 543,738 configs on mainnet (37%) had a fee claimer different from their leftover receiver, and the call does not return those for their fee claimer. Reproduced on mainnet: fee claimer `7AdYv1gs9xhmg87Xyh84ryHrfht4khVvBLSbDqkMTwrm` owns three configs and the call returns none; called with their leftover receiver it returns them. The fix is one number. (SDK 1.5.13.)
+- **How far a known SDK bug reaches.** In SDK 1.5.13, `StateService.getPoolConfigsByOwner(owner)` filters `PoolConfig` accounts at byte offset 72, which is `leftover_receiver`; `fee_claimer` is at offset 40. I ran into it while indexing; the SDK team had opened a fix the same day ([PR #124](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/pull/124)). What the census adds is the size of it: on 2026-10-10, 200,278 of 543,738 configs on mainnet (37%) had a fee claimer different from their leftover receiver, and 1.5.13 does not return those for their fee claimer. Reproduced on mainnet: fee claimer `7AdYv1gs9xhmg87Xyh84ryHrfht4khVvBLSbDqkMTwrm` owns three configs and the call returns none.
 - **Slot-based fee schedules run faster than the Invent config says.** Its comments size them at 0.4 s a slot. Block times sampled 100,000 slots apart on 2026-10-10 give 0.219 s a slot, so a schedule written as "60 seconds" in slots lasts about 33. Designs made here count in seconds (timestamp activation).
 - **The SDK (1.5.12 and later) no longer builds rate-limiter configs**, so the deck does not offer them for new designs. Configs that already use one still load and play: 45 rate-limiter pools (801 swaps) are in the conformance run, without a mismatch.
 <!-- found:end -->

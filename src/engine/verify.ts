@@ -6,21 +6,24 @@ import type { SwapMode } from "@meteora-ag/dynamic-bonding-curve-sdk";
 import BN from "bn.js";
 import type { ChainTx } from "../flows/history.ts";
 import { configFromBytes, poolFromBytes } from "./bytes.ts";
-import { SimPool } from "./pool.ts";
+import { SDK_MATH, SimPool, type QuoteMath } from "./pool.ts";
 
 /** A pool, its config, both accounts' bytes (base64) and its transactions from creation on. */
-export type Fixture = { pool: string; config: string; configData: string; poolData: string; txs: ChainTx[]; complete: boolean };
+export type Fixture = { pool: string; config: string; configData: string; poolData?: string; txs: ChainTx[]; complete: boolean };
 export type Verdict = { swaps: number; mismatches: string[]; finalChecked: boolean; skipped?: string };
 
 const base64 = (s: string): Uint8Array => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-export function replayFixture(f: Fixture): Verdict {
+/**
+ * `math`: the quote functions to replay with (default: the installed SDK's). Without the pool's own account
+ * (`poolData`) every swap is still checked; only the final-state comparison is skipped.
+ */
+export function replayFixture(f: Fixture, math: QuoteMath = SDK_MATH): Verdict {
   const config = configFromBytes(base64(f.configData));
-  const live = poolFromBytes(base64(f.poolData));
   const created = f.txs.findIndex((tx) => tx.events.some((e) => e.name === "evtInitializePool" && e.data.pool === f.pool));
   if (created < 0) return { swaps: 0, mismatches: [], finalChecked: false, skipped: "history does not reach the pool's creation" };
   const init = f.txs[created].events.find((e) => e.name === "evtInitializePool")!;
-  const sim = SimPool.fresh(config, new BN(init.data.activationPoint as string));
+  const sim = SimPool.fresh(config, new BN(init.data.activationPoint as string), undefined, math);
   const bySlot = config.activationType === 0;
   const mismatches: string[] = [];
   let swaps = 0;
@@ -51,7 +54,8 @@ export function replayFixture(f: Fixture): Verdict {
     }
   }
   // The live account is only comparable when the tape is whole and the curve is finished (nothing traded since).
-  if (!f.complete || !sim.complete) return { swaps, mismatches, finalChecked: false };
+  if (!f.complete || !sim.complete || !f.poolData) return { swaps, mismatches, finalChecked: false };
+  const live = poolFromBytes(base64(f.poolData));
   // Totals never decrease and claims do not touch them, so they must equal the live account's.
   const finals: [string, BN, BN][] = [
     ["sqrtPrice", sim.state.sqrtPrice, live.sqrtPrice],

@@ -75,8 +75,21 @@ export type PoolState = {
   totalProtocolQuoteFee: BN;
   totalTradingBaseFee: BN;
   totalTradingQuoteFee: BN;
-  hasSwap: boolean;
+  /** 0 until the first swap, then 1: the program's cached flag, as a number like the account's. */
+  hasSwap: number;
 };
+
+/**
+ * The quote functions the pool is advanced with. By default the installed SDK's; a conformance run can hand in
+ * another build's (the next SDK release, say) and replay the same mainnet history through it.
+ */
+export type QuoteMath = {
+  getFeeMode: typeof getFeeMode;
+  getSwapResultFromExactInput: typeof getSwapResultFromExactInput;
+  getSwapResultFromPartialInput: typeof getSwapResultFromPartialInput;
+  getSwapResultFromExactOutput: typeof getSwapResultFromExactOutput;
+};
+export const SDK_MATH: QuoteMath = { getFeeMode, getSwapResultFromExactInput, getSwapResultFromPartialInput, getSwapResultFromExactOutput };
 
 /** Price ratio between two sqrt prices, counted in bin steps (state/fee.rs get_delta_bin_id). */
 function deltaBinId(binStepU128: BN, a: BN, b: BN): BN {
@@ -88,13 +101,16 @@ export class SimPool {
   readonly config: PoolConfig;
   readonly state: PoolState;
 
-  constructor(config: PoolConfig, state: PoolState) {
+  readonly math: QuoteMath;
+
+  constructor(config: PoolConfig, state: PoolState, math: QuoteMath = SDK_MATH) {
     this.config = config;
     this.state = state;
+    this.math = math;
   }
 
   /** A pool as initialize_virtual_pool leaves it: at the start price, nothing traded. */
-  static fresh(config: PoolConfig, activationPoint: BN, baseReserve: BN = ZERO): SimPool {
+  static fresh(config: PoolConfig, activationPoint: BN, baseReserve: BN = ZERO, math: QuoteMath = SDK_MATH): SimPool {
     return new SimPool(config, {
       volatilityTracker: { lastUpdateTimestamp: ZERO, padding: [], sqrtPriceReference: ZERO, volatilityAccumulator: ZERO, volatilityReference: ZERO } as unknown as Tracker,
       sqrtPrice: config.sqrtStartPrice,
@@ -111,8 +127,8 @@ export class SimPool {
       totalProtocolQuoteFee: ZERO,
       totalTradingBaseFee: ZERO,
       totalTradingQuoteFee: ZERO,
-      hasSwap: false,
-    });
+      hasSwap: 0,
+    }, math);
   }
 
   get complete(): boolean {
@@ -129,9 +145,9 @@ export class SimPool {
     if (dynamicOn) this.updateReferences(clock.timestamp);
 
     const firstSwapWithMinFee = Boolean(opts.firstSwapInCreateTx) && config.enableFirstSwapWithMinFee === 1 && !state.hasSwap;
-    const feeMode = getFeeMode(config.collectFeeMode, direction, Boolean(opts.hasReferral));
-    const quote =
-      opts.mode === SwapMode.PartialFill ? getSwapResultFromPartialInput : opts.mode === SwapMode.ExactOut ? getSwapResultFromExactOutput : getSwapResultFromExactInput;
+    const m = this.math;
+    const feeMode = m.getFeeMode(config.collectFeeMode, direction, Boolean(opts.hasReferral));
+    const quote = opts.mode === SwapMode.PartialFill ? m.getSwapResultFromPartialInput : opts.mode === SwapMode.ExactOut ? m.getSwapResultFromExactOutput : m.getSwapResultFromExactInput;
     const r = quote({ poolState: state } as unknown as VirtualPool, config, amount, feeMode, direction, clock.point, firstSwapWithMinFee);
 
     // apply_swap_result
@@ -168,7 +184,7 @@ export class SimPool {
       t.volatilityAccumulator = BN.min(va, new BN(dynamic.maxVolatilityAccumulator));
       if (deltaBinId(dynamic.binStepU128, oldSqrtPrice, state.sqrtPrice).gt(ZERO)) t.lastUpdateTimestamp = clock.timestamp;
     }
-    state.hasSwap = true;
+    state.hasSwap = 1;
 
     return {
       direction,
