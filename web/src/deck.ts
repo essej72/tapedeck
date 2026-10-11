@@ -536,8 +536,10 @@ export function mountDeck(lib: { tapes: PackedTape[]; slotSeconds: number }, pre
     seek(1);
   };
   $<HTMLInputElement>("scrub").oninput = (e) => {
+    // Read the slider first: stopping playback re-renders, and rendering writes the old position back to it.
+    const wanted = Number((e.target as HTMLInputElement).value) / 1000;
     play(false);
-    seek(Number((e.target as HTMLInputElement).value) / 1000);
+    seek(wanted);
   };
   const scrubTo = (e: PointerEvent) => {
     const r = canvas.getBoundingClientRect();
