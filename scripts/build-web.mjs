@@ -43,6 +43,8 @@ const builders = load("builders.json");
 const migration = load("migration.json");
 const afterSwaps = load("afterwards.json");
 const dammSdk = load("dammsdk.json");
+// the pitch page says the SDK agrees on every swap: do not build a page that says so when it does not
+if (!dammSdk?.swaps || dammSdk.agree !== dammSdk.pools) throw new Error("web/data/dammsdk.json: the DAMM v2 SDK check is missing or no longer agrees, and the pitch page says it does");
 const int = (x) => Math.round(x).toLocaleString("en-US");
 const pct = (x, d = 0) => `${(100 * x).toFixed(d)}%`;
 const kinds = lib?.pumpfun?.kinds ?? {};
@@ -83,6 +85,7 @@ const figures = {
   migMigrated: int(migration?.migrated ?? 0),
   afterSwaps: int(afterSwaps?.swaps ?? 0),
   afterPools: int(afterSwaps?.withSwaps ?? 0),
+  dammSdkSwaps: int(dammSdk?.swaps ?? 0),
   buildersInputs: int(builders?.installed.designs ?? 0),
   buildersRefusedOld: int(builders?.installed.refusedByProgram ?? 0),
   buildersStoredNew: int(builders?.other.stored ?? 0),
