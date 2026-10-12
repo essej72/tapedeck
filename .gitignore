@@ -6,3 +6,8 @@ web/data/census.json
 web/data/census_all.json
 # single-page copy of the site for a private preview
 /artifact/
+# what the studies fetch or derive locally
+/studies/*.db
+/studies/*.db-*
+/studies/misfit_mints.txt
+/studies/__pycache__/

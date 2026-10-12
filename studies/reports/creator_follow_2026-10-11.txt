@@ -1,0 +1,39 @@
+CREATOR-FOLLOWING   5777 launch tapes with the creator's history, 10-10 19:14 to 10-11 14:21 UTC
+
+buy 10 s after the first trade, exit: 2x/10m
+    all launches                       n=5772 mints  mean   -8.1%  [95% -9.0%, -7.2%]  median   -5.3%  positive   6%
+    first coin                         n=2747 mints  mean   -6.5%  [95% -8.0%, -4.9%]  median   -5.4%  positive   5%
+    1-4 earlier, none graduated        n= 420 mints  mean   -6.8%  [95% -8.5%, -5.0%]  median   -4.1%  positive   3%
+    5+ earlier, none graduated         n=1539 mints  mean   -6.5%  [95% -7.6%, -5.5%]  median   -3.5%  positive   4%
+    a graduate among fewer than 10     n=  49 mints  mean   -1.6%  [95% -13.9%, +11.4%]  median   -9.8%  positive  22%
+    a graduate among 10 or more        n=1017 mints  mean  -15.5%  [95% -17.8%, -13.1%]  median  -19.7%  positive   9%
+    best earlier peak $100k+           n= 795 mints  mean  -15.2%  [95% -18.0%, -12.4%]  median  -20.1%  positive  11%
+
+buy 10 s after the first trade, exit: hold
+    all launches                       n=5772 mints  mean  -13.9%  [95% -14.5%, -13.3%]  median   -6.7%  positive   2%
+    first coin                         n=2747 mints  mean  -12.2%  [95% -13.1%, -11.4%]  median   -6.5%  positive   1%
+    1-4 earlier, none graduated        n= 420 mints  mean   -9.0%  [95% -10.4%, -7.6%]  median   -4.7%  positive   3%
+    5+ earlier, none graduated         n=1539 mints  mean   -9.7%  [95% -10.4%, -9.0%]  median   -3.8%  positive   2%
+    a graduate among fewer than 10     n=  49 mints  mean  -22.9%  [95% -31.6%, -12.5%]  median  -24.0%  positive  10%
+    a graduate among 10 or more        n=1017 mints  mean  -26.3%  [95% -27.8%, -24.7%]  median  -24.3%  positive   2%
+    best earlier peak $100k+           n= 795 mints  mean  -27.3%  [95% -28.9%, -25.7%]  median  -26.0%  positive   3%
+
+buy 60 s after the first trade, exit: 2x/10m
+    all launches                       n=5772 mints  mean   -7.5%  [95% -8.0%, -6.9%]  median   -3.6%  positive   4%
+    first coin                         n=2747 mints  mean   -7.4%  [95% -8.2%, -6.7%]  median   -3.8%  positive   3%
+    1-4 earlier, none graduated        n= 420 mints  mean   -6.2%  [95% -7.4%, -5.0%]  median   -3.5%  positive   2%
+    5+ earlier, none graduated         n=1539 mints  mean   -5.6%  [95% -6.3%, -4.7%]  median   -3.4%  positive   3%
+    a graduate among fewer than 10     n=  49 mints  mean   -6.2%  [95% -17.1%, +5.0%]  median   -4.8%  positive  16%
+    a graduate among 10 or more        n=1017 mints  mean  -11.3%  [95% -13.1%, -9.5%]  median   -9.3%  positive   6%
+    best earlier peak $100k+           n= 795 mints  mean  -11.8%  [95% -13.9%, -9.7%]  median  -10.4%  positive   7%
+
+buy 60 s after the first trade, exit: hold
+    all launches                       n=5772 mints  mean  -10.2%  [95% -10.7%, -9.6%]  median   -4.1%  positive   2%
+    first coin                         n=2747 mints  mean   -9.3%  [95% -10.3%, -8.3%]  median   -4.7%  positive   1%
+    1-4 earlier, none graduated        n= 420 mints  mean   -6.9%  [95% -8.0%, -5.8%]  median   -3.7%  positive   3%
+    5+ earlier, none graduated         n=1539 mints  mean   -7.5%  [95% -8.1%, -6.9%]  median   -3.4%  positive   2%
+    a graduate among fewer than 10     n=  49 mints  mean  -18.3%  [95% -28.4%, -7.4%]  median  -10.0%  positive  10%
+    a graduate among 10 or more        n=1017 mints  mean  -17.4%  [95% -18.8%, -16.0%]  median  -12.0%  positive   2%
+    best earlier peak $100k+           n= 795 mints  mean  -19.0%  [95% -20.7%, -17.5%]  median  -12.2%  positive   2%
+
+(creators with more coins than the 100 the history returns: counted on their most recent 100)

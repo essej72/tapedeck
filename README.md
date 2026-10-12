@@ -223,6 +223,8 @@ npm run build
 | `src/census/` | The whole-chain census and the design table |
 | `src/flows/history.ts`, `chain.ts`, `chaintape.ts`, `dbc.ts` | Pool histories from the chain, verified and turned into tapes |
 | `src/flows/pumpfun.ts`, `tapes.ts`, `pack.ts`, `library.ts` | pump.fun tapes: collect, turn trades into orders, check, pack |
+| `src/dammsdk.ts`, `scripts/bundle-damm-sdk.mjs` | Meteora's DAMM v2 SDK against the swaps of the migrated pools, for the published package or any checkout |
+| `studies/` | Two questions asked of the pump.fun tapes, with the designs, code and output: copying wallets with a good record, and buying a proven creator's next launch. Both lose ([what came out](studies/README.md)) |
 | `src/validate.ts`, `src/conformance.ts`, `src/probe.ts` | Engine against chain: one pool, every kind of config, and swaps nobody has made (by simulation) |
 | `src/builders.ts`, `scripts/bundle-sdk.mjs` | The SDK's curve builders against the program: random inputs, any SDK checkout, what the program refuses and what it stores |
 | `web/` | The deck, the evidence page, the pitch page |

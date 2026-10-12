@@ -1,0 +1,75 @@
+WALLET-FOLLOWING   5438 launch tapes, 10-10 19:14 to 10-11 13:27 UTC, each 45 minutes long
+discovery: 3135 launches before 10-11 06:32; test: 2303 launches after
+follower: 0.2 SOL per follow, pump.fun fee 1.25% each way, own impact, 0.002 SOL fixed per round trip
+
+wallets seen in discovery: 26611; with 5+ mints: 3233
+  the 5+ group as a whole: spent 30,790 SOL, got back 28,201 SOL (-8.4% realised)
+  G1  5+ mints, +10% realised: 249 wallets, 2,140 SOL spent, +26.3% realised in discovery
+  G2 10+ mints, +10% realised: 53 wallets, 862 SOL spent, +26.6% realised in discovery
+  G3 top 100 by SOL profit: 100 wallets, 2,465 SOL spent, +19.9% realised in discovery
+
+the leaders' own results in the test launches (tokens still held count as zero):
+  G1  5+ mints, +10% realised: 130 of 249 wallets traded again, 1,006 SOL spent, +11.5% realised
+  G2 10+ mints, +10% realised: 38 of 53 wallets traded again, 461 SOL spent, +15.5% realised
+  G3 top 100 by SOL profit: 57 of 100 wallets traded again, 1,229 SOL spent, +11.9% realised
+  every wallet with 5+ discovery mints: 1756 traded again, 18,359 SOL spent, -12.8% realised
+
+follow 2 slots after the leader's buy:
+  exit: mirror
+    G1  5+ mints, +10% realised        n= 376 mints  mean   -5.8%  [95% -9.1%, -2.5%]  median   -9.8%  positive  26%
+       other wallets, same mints       n= 371 mints  mean  -17.0%  [95% -18.1%, -15.9%]  median  -16.0%  positive   2%
+    G2 10+ mints, +10% realised        n= 231 mints  mean   -6.7%  [95% -10.0%, -3.2%]  median   -8.4%  positive  26%
+    G3 top 100 by SOL profit           n= 361 mints  mean   -7.6%  [95% -9.6%, -5.6%]  median   -8.5%  positive  20%
+    any wallet, any test mint          n=1895 mints  mean  -11.7%  [95% -12.4%, -10.9%]  median   -6.4%  positive   7%
+  exit: 2x/10m
+    G1  5+ mints, +10% realised        n= 376 mints  mean  -10.3%  [95% -16.3%, -3.8%]  median  -35.0%  positive  21%
+       other wallets, same mints       n= 371 mints  mean  -27.9%  [95% -30.1%, -25.6%]  median  -32.2%  positive  12%
+    G2 10+ mints, +10% realised        n= 231 mints  mean  -14.3%  [95% -22.2%, -6.5%]  median  -38.5%  positive  18%
+    G3 top 100 by SOL profit           n= 361 mints  mean  -13.0%  [95% -18.9%, -6.8%]  median  -36.5%  positive  19%
+    any wallet, any test mint          n=1895 mints  mean  -17.6%  [95% -18.7%, -16.5%]  median  -10.4%  positive   3%
+  exit: hold
+    G1  5+ mints, +10% realised        n= 376 mints  mean  -34.6%  [95% -37.7%, -31.0%]  median  -41.7%  positive   5%
+       other wallets, same mints       n= 371 mints  mean  -39.1%  [95% -41.3%, -37.1%]  median  -39.5%  positive   2%
+    G2 10+ mints, +10% realised        n= 231 mints  mean  -37.3%  [95% -40.7%, -33.2%]  median  -42.0%  positive   5%
+    G3 top 100 by SOL profit           n= 361 mints  mean  -36.2%  [95% -38.6%, -33.4%]  median  -41.1%  positive   4%
+    any wallet, any test mint          n=1895 mints  mean  -21.1%  [95% -22.0%, -20.1%]  median  -12.8%  positive   1%
+
+follow 10 slots after the leader's buy:
+  exit: mirror
+    G1  5+ mints, +10% realised        n= 376 mints  mean   -5.9%  [95% -9.0%, -2.6%]  median   -8.0%  positive  24%
+       other wallets, same mints       n= 371 mints  mean  -16.0%  [95% -17.1%, -15.0%]  median  -14.8%  positive   2%
+    G2 10+ mints, +10% realised        n= 231 mints  mean   -6.8%  [95% -10.2%, -2.9%]  median   -6.7%  positive  24%
+    G3 top 100 by SOL profit           n= 361 mints  mean   -6.3%  [95% -8.3%, -4.1%]  median   -5.1%  positive  20%
+    any wallet, any test mint          n=1895 mints  mean  -11.1%  [95% -11.9%, -10.4%]  median   -5.4%  positive   6%
+  exit: 2x/10m
+    G1  5+ mints, +10% realised        n= 376 mints  mean  -10.8%  [95% -16.6%, -5.1%]  median  -32.3%  positive  21%
+       other wallets, same mints       n= 371 mints  mean  -26.9%  [95% -29.1%, -24.8%]  median  -30.8%  positive  12%
+    G2 10+ mints, +10% realised        n= 231 mints  mean  -14.7%  [95% -21.4%, -7.2%]  median  -34.7%  positive  19%
+    G3 top 100 by SOL profit           n= 361 mints  mean  -14.4%  [95% -19.3%, -9.0%]  median  -32.7%  positive  17%
+    any wallet, any test mint          n=1895 mints  mean  -16.9%  [95% -17.9%, -15.8%]  median   -9.6%  positive   3%
+  exit: hold
+    G1  5+ mints, +10% realised        n= 376 mints  mean  -33.3%  [95% -36.6%, -29.7%]  median  -39.0%  positive   6%
+       other wallets, same mints       n= 371 mints  mean  -37.5%  [95% -39.6%, -35.4%]  median  -36.9%  positive   2%
+    G2 10+ mints, +10% realised        n= 231 mints  mean  -35.9%  [95% -39.5%, -32.2%]  median  -40.4%  positive   6%
+    G3 top 100 by SOL profit           n= 361 mints  mean  -34.1%  [95% -37.0%, -31.2%]  median  -37.9%  positive   4%
+    any wallet, any test mint          n=1895 mints  mean  -19.5%  [95% -20.5%, -18.6%]  median  -10.5%  positive   1%
+
+follow 45 slots after the leader's buy:
+  exit: mirror
+    G1  5+ mints, +10% realised        n= 376 mints  mean   -6.3%  [95% -9.1%, -3.6%]  median   -5.3%  positive  20%
+       other wallets, same mints       n= 371 mints  mean  -14.3%  [95% -15.2%, -13.3%]  median  -12.6%  positive   2%
+    G2 10+ mints, +10% realised        n= 231 mints  mean   -6.8%  [95% -9.7%, -3.7%]  median   -4.2%  positive  18%
+    G3 top 100 by SOL profit           n= 361 mints  mean   -7.1%  [95% -8.7%, -5.7%]  median   -3.4%  positive  12%
+    any wallet, any test mint          n=1895 mints  mean   -9.4%  [95% -10.0%, -8.7%]  median   -4.1%  positive   5%
+  exit: 2x/10m
+    G1  5+ mints, +10% realised        n= 376 mints  mean  -12.9%  [95% -17.9%, -7.5%]  median  -24.2%  positive  19%
+       other wallets, same mints       n= 371 mints  mean  -24.6%  [95% -26.7%, -22.4%]  median  -24.4%  positive  11%
+    G2 10+ mints, +10% realised        n= 231 mints  mean  -17.0%  [95% -22.8%, -10.9%]  median  -26.2%  positive  16%
+    G3 top 100 by SOL profit           n= 361 mints  mean  -15.3%  [95% -20.2%, -10.2%]  median  -25.7%  positive  15%
+    any wallet, any test mint          n=1895 mints  mean  -14.4%  [95% -15.4%, -13.5%]  median   -7.9%  positive   3%
+  exit: hold
+    G1  5+ mints, +10% realised        n= 376 mints  mean  -30.7%  [95% -34.0%, -26.9%]  median  -34.3%  positive   6%
+       other wallets, same mints       n= 371 mints  mean  -33.6%  [95% -35.7%, -31.4%]  median  -32.2%  positive   2%
+    G2 10+ mints, +10% realised        n= 231 mints  mean  -32.8%  [95% -36.5%, -29.0%]  median  -34.2%  positive   6%
+    G3 top 100 by SOL profit           n= 361 mints  mean  -31.7%  [95% -34.4%, -28.9%]  median  -33.6%  positive   4%
+    any wallet, any test mint          n=1895 mints  mean  -17.0%  [95% -17.9%, -16.1%]  median   -9.4%  positive   1%
