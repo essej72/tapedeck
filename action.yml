@@ -5,9 +5,11 @@
 #     with:
 #       sdk-path: packages/dynamic-bonding-curve
 #
-# Two offline checks, both failing the job on any mismatch:
-#   history      every recorded swap of the corpus, replayed through the checkout's quote math from pool creation
-#   simulations  swaps nobody makes on mainnet (exact-out), as the live program answered them when it was asked
+# Offline checks, each failing the job on any mismatch:
+#   history        every recorded swap of the corpus, replayed through the checkout's quote math from pool creation
+#   simulations    swaps nobody makes on mainnet (exact-out), as the live program answered them when it was asked
+#   transfer fees  for an SDK that has createConfig2: swaps on a base mint with a transfer fee, as program 0.2.2
+#                  answered them on devnet, against the checkout's swapQuote2 and getQuoteFrom...Amount
 # The data comes from this repository's releases. Nothing is sent to a network apart from that download.
 name: Tapedeck DBC conformance
 description: Replay mainnet swap history and simulated swaps through a checkout of Meteora's DBC SDK; fail on any mismatch.
@@ -54,3 +56,19 @@ runs:
       shell: bash
       working-directory: ${{ github.action_path }}
       run: node src/probe.ts check --file data/probes.jsonl.gz --math data/sdk-math.mjs
+    - name: Transfer fee swaps (an SDK with createConfig2)
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        SDK_PATH: ${{ inputs.sdk-path }}
+        RELEASE: ${{ inputs.release }}
+      run: |
+        if ! grep -qs "createConfig2" "$GITHUB_WORKSPACE/$SDK_PATH/src/services/partner.ts"; then
+          echo "this SDK has no createConfig2: nothing to check"
+          exit 0
+        fi
+        base="https://github.com/essej72/tapedeck/releases"
+        if [ "$RELEASE" = "latest" ]; then from="$base/latest/download"; else from="$base/download/$RELEASE"; fi
+        curl -sSfL -o data/transferfee.jsonl.gz "$from/transferfee.jsonl.gz"
+        node scripts/bundle-sdk.mjs "$GITHUB_WORKSPACE/$SDK_PATH" data/sdk.mjs
+        node src/transferfee.ts check --sdk data/sdk.mjs --file data/transferfee.jsonl.gz

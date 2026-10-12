@@ -31,6 +31,7 @@ Entry for the Meteora track, "Best use of Meteora's Dynamic Bonding Curve", Cryp
 - **Engine against migration:** in 179 of 179 real migrations, the tokens that moved into the new pool and the price the pool opened at are what the engine says, to the unit.
 - **Engine against the migrated pool:** 5,697 real swaps in 166 DAMM v2 pools, 1,591 of them exact-out, replayed from the DBC accounts alone: amounts, next price and fee as DAMM v2 recorded them in every pool.
 - **Meteora's DAMM v2 SDK against the same swaps:** asked before each of those 5,697 swaps, from the pool as it stood, the SDK's quote math (1.5.1 from npm, and main at 79ebbfe) gives the output or cost, the fee and the next price the program recorded in every pool.
+- **Before release, on devnet:** program 0.2.2 and SDK 2.0 are not on mainnet yet. Put to each other where the program already runs, they take and refuse the same 1,134 configs sent through `createConfig2` (689 of them with a transfer fee on the base mint), and the SDK quotes 563 swaps on 400 simulated transfer fee pools as the program makes them.
 - **Builders against the program:** 600 random inputs through the SDK's six curve builders, each result simulated against the live program. It refused 12 of the configs SDK 1.5.13 returned and none of the 303 the 2.0 branch returned.
 - **Shelf:** 84 tapes: 24 DBC pools read from the chain and 60 pump.fun launches, picked from 561 that passed the fit check. Of 1,206 pump.fun launches recorded, 584 had under 12 orders and 61 failed the check.
 <!-- figures:end -->
@@ -152,10 +153,57 @@ Two causes in 1.5.13, showing up three ways, account for everything the program 
 - **The same rounding in what is stored.** In 128 of the configs the program stored for 1.5.13, its migration base differs from the one 1.5.13's helpers give. Each has a migration fee, the migration base is the only field that differs, and rounding the quote amount up closes the gap. For 2.0 all 303 stored configs equal the SDK's derivation field by field: curve, fees, migration price, migration base, swap amount, supply.
 - **A fractional `percentageSupplyOnMigration`.** In 1.5.13, `buildCurveWithTwoSegments` and `buildCurveWithMidPrice` take the base amount from `new BN(percentage)`, which drops the fraction, and the quote amount from the exact figure. Ask for 20.69% of supply on migration and the config migrates at 20.69 / 20, or 3.45%, above the market cap that was asked for; the program stores it without complaint. 72 stored configs are off this way, by up to 12.8%, and percentage / floor(percentage) explains every one to five decimal places. 2.0 keeps the fraction.
 
-Also seen: 2.0 turned 14 inputs that 1.5.13 refuses into configs the program stores, and refused 1 that 1.5.13 had built (`buildCurveWithTwoSegments` at 45.56% of supply, which 1.5.13 had quietly solved for 45%: "no mid price gives a two-segment curve with positive liquidity"). `create_config2`, the instruction 2.0's `createConfigAndPool` uses, was not on mainnet when this ran (asked on 2026-10-11, the program answers `InstructionFallbackNotFound`), so both sets went through `createConfig`.
+Also seen: 2.0 turned 14 inputs that 1.5.13 refuses into configs the program stores, and refused 1 that 1.5.13 had built (`buildCurveWithTwoSegments` at 45.56% of supply, which 1.5.13 had quietly solved for 45%: "no mid price gives a two-segment curve with positive liquidity"). `create_config2`, the instruction 2.0's `createConfigAndPool` uses, was not on mainnet when this ran (asked on 2026-10-12, the program answers `InstructionFallbackNotFound`), so both sets went through `createConfig`.
 <!-- builders:end -->
 
 Limits: 600 inputs is a sample, not a proof; half of them are turned away by the SDK's own validation before they reach the program (the generator is deliberately loose); SOL and USDC quotes only, no transfer-fee or transfer-hook configs, and DAMM v2 migration only, since the SDK no longer builds the others.
+
+### Before release: program 0.2.2 on devnet
+
+Program 0.2.2 and SDK 2.0 are not on mainnet. The program is on devnet, deployed there on 8 October 2026, so the two can be put to each other before either ships. Two checks, both by simulation against the deployed program, nothing signed or sent.
+
+`src/config2.ts` sends the builders' output through `createConfig2`, the instruction 2.0 creates configs with. Each case is put to both sides: where the SDK refuses, the same instruction is built without the SDK's checks and sent anyway, to hear what the program says. On top of the 600 inputs above come transfer fee cases, three for every second input: a fee picked from the valid range, one edge of that range, and a valid fee on a config that breaks one of the rules for such configs.
+
+`src/transferfee.ts` covers swaps on a base mint that charges a transfer fee. Devnet held two such pools, one swap each, so a whole life goes into one transaction: create the config, create a pool on it, buy, sell. Nothing of it exists afterwards. The program's events (`EvtSwap2`, and `EvtSwap3` for what the transfer fee did to each side) and the trader's token balances are held against what the SDK quotes, asked the way an integrator asks: `swapQuote2` with the stored config and the pool as it stood, and for the first swap `getQuoteFromInputAmount` or `getQuoteFromOutputAmount` from the builder's output.
+
+```bash
+node scripts/bundle-sdk.mjs <path to the SDK package> data/sdk.mjs
+node src/config2.ts run 600 --sdk data/sdk.mjs
+node src/transferfee.ts run 400 --sdk data/sdk.mjs
+node src/transferfee.ts check --sdk data/sdk.mjs --file transferfee.jsonl.gz   # offline, for any later build of the SDK
+```
+
+<!-- prerelease:start -->
+Run on 2026-10-12 against api.devnet.solana.com, with SDK 2.0 at f960aff:
+
+| Sent through `createConfig2` | cases | both take it | both refuse it | SDK builds it, program refuses | SDK refuses it, program takes it |
+|---|---|---|---|---|---|
+| No transfer fee | 445 | 303 | 142 | 0 | 0 |
+| A transfer fee from the valid range | 230 | 159 | 71 | 0 | 0 |
+| Edge: 0 bps that the creator may change after migration | 28 | 19 | 9 | 0 | 0 |
+| Edge: 0 bps that can never change | 30 | 0 | 30 | 0 | 0 |
+| Edge: 0 bps with the authority revoked | 27 | 0 | 27 | 0 | 0 |
+| Edge: 1,000 bps, the cap | 34 | 24 | 10 | 0 | 0 |
+| Edge: 10,000 bps | 31 | 0 | 31 | 0 | 0 |
+| Edge: 1,001 bps | 28 | 0 | 28 | 0 | 0 |
+| Edge: an after-migration option that does not exist | 18 | 0 | 18 | 0 | 0 |
+| Edge: a withheld authority that does not exist | 34 | 0 | 34 | 0 | 0 |
+| A valid fee on a fixed migration fee tier | 34 | 0 | 34 | 0 | 0 |
+| A valid fee on a migrated pool collecting in quote | 46 | 0 | 46 | 0 | 0 |
+| A valid fee on a migrated pool collecting in the output token | 29 | 0 | 29 | 0 | 0 |
+| A valid fee on a supply that shrinks at migration | 37 | 0 | 37 | 0 | 0 |
+| A valid fee on an SPL token | 28 | 0 | 28 | 0 | 0 |
+| A valid fee on a supply that is not fixed | 18 | 0 | 18 | 0 | 0 |
+| A valid fee on vesting | 37 | 0 | 37 | 0 | 0 |
+
+366 more inputs were turned away by a builder before there was anything to send. The SDK built nothing the program refused, and refused nothing the program would have taken. All 505 configs the program stored are what the SDK derives from the builder's output, field by field, and each transfer fee config carries the fee, the withheld authority and the after-migration option that were sent. Where both refuse a valid fee, it is for a reason that has nothing to do with the fee: the share of liquidity that has to be locked, the token authority option, the migration fee.
+
+Swaps: 400 simulated lives (transfer fees of 0, 1, 10, 25, 100, 250, 500, 1000 basis points; 5 of the six builders, the sixth making curves too long to fit; curves of one or two segments), 563 swaps in them: 359 buys and 204 sells, 309 exact-in, 141 partial fill, 113 exact-out, and 66 swaps the program refused. 106 of the lives have a dynamic fee and 130 take the trading fee from the output token; 16 first buys paid the minimum fee, which a config can allow its creator's own first swap. In all 400 the SDK's quote is the program's swap: the amounts with and without the trading fee, the fees, the next price, what leaves the trader and what reaches them after the transfer fee, from `swapQuote2` and from the quote of a builder's output alike. Where the program refused, the SDK refused too, or quoted a cost the trader did not hold. The token balances each transaction left are the ones its events add up to.
+
+The two transfer fee pools that existed on devnet that day (250 basis points, one partial-fill buy each, made by someone else) are quoted the same way: `node src/transferfee.ts history`.
+<!-- prerelease:end -->
+
+Limits: one deployment on devnet, which can be replaced at any time; the swap check only reaches curves of one or two segments and SOL as the quote, because the whole life has to fit one transaction; a pool's migration with a transfer fee is not checked. The simulated lives are under Releases (`transferfee.jsonl.gz`), and the action above runs them against any SDK that has `createConfig2`.
 
 ## From the deck to mainnet
 
@@ -224,6 +272,7 @@ npm run build
 | `src/flows/history.ts`, `chain.ts`, `chaintape.ts`, `dbc.ts` | Pool histories from the chain, verified and turned into tapes |
 | `src/flows/pumpfun.ts`, `tapes.ts`, `pack.ts`, `library.ts` | pump.fun tapes: collect, turn trades into orders, check, pack |
 | `src/dammsdk.ts`, `scripts/bundle-damm-sdk.mjs` | Meteora's DAMM v2 SDK against the swaps of the migrated pools, for the published package or any checkout |
+| `src/config2.ts`, `src/transferfee.ts` | Before release, on devnet: SDK 2.0's `createConfig2` against program 0.2.2, and swaps on a base mint with a transfer fee against the SDK's quotes |
 | `studies/` | Two questions asked of the pump.fun tapes, with the designs, code and output: copying wallets with a good record, and buying a proven creator's next launch. Both lose ([what came out](studies/README.md)) |
 | `src/validate.ts`, `src/conformance.ts`, `src/probe.ts` | Engine against chain: one pool, every kind of config, and swaps nobody has made (by simulation) |
 | `src/builders.ts`, `scripts/bundle-sdk.mjs` | The SDK's curve builders against the program: random inputs, any SDK checkout, what the program refuses and what it stores |

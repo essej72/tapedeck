@@ -1,0 +1,171 @@
+{
+ "generatedAt": "2026-10-12T02:18:06.970Z",
+ "sdk": "SDK 2.0 at f960aff",
+ "endpoint": "https://api.devnet.solana.com",
+ "rows": 1500,
+ "refusedByBuilder": 366,
+ "plain": {
+  "cases": 445,
+  "bothTake": 303,
+  "storedAsDerived": 303,
+  "bothRefuse": 142,
+  "sdkBuildsProgramRefuses": 0,
+  "sdkRefusesProgramTakes": 0
+ },
+ "fee": {
+  "cases": 689,
+  "bothTake": 202,
+  "storedAsDerived": 202,
+  "bothRefuse": 487,
+  "sdkBuildsProgramRefuses": 0,
+  "sdkRefusesProgramTakes": 0
+ },
+ "byLabel": [
+  {
+   "label": "fee on: a fixed migration fee tier",
+   "cases": 34,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 34,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee on: a migrated pool collecting in quote",
+   "cases": 46,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 46,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee on: a migrated pool collecting in the output token",
+   "cases": 29,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 29,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee on: a supply that shrinks at migration",
+   "cases": 37,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 37,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee on: an SPL token",
+   "cases": 28,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 28,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee on: no fixed supply",
+   "cases": 18,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 18,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee on: vesting",
+   "cases": 37,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 37,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee: 0 bps, creator's to change",
+   "cases": 28,
+   "bothTake": 19,
+   "storedAsDerived": 19,
+   "bothRefuse": 9,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee: 0 bps, immutable",
+   "cases": 30,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 30,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee: 0 bps, revoked at zero",
+   "cases": 27,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 27,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee: 1000 bps, the cap",
+   "cases": 34,
+   "bothTake": 24,
+   "storedAsDerived": 24,
+   "bothRefuse": 10,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee: 10000 bps",
+   "cases": 31,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 31,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee: 1001 bps",
+   "cases": 28,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 28,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee: authority option 4",
+   "cases": 18,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 18,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee: valid",
+   "cases": 230,
+   "bothTake": 159,
+   "storedAsDerived": 159,
+   "bothRefuse": 71,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  },
+  {
+   "label": "fee: withheld authority 2",
+   "cases": 34,
+   "bothTake": 0,
+   "storedAsDerived": 0,
+   "bothRefuse": 34,
+   "sdkBuildsProgramRefuses": 0,
+   "sdkRefusesProgramTakes": 0
+  }
+ ],
+ "disagreements": [],
+ "storedDifferently": []
+}

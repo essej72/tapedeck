@@ -701,7 +701,7 @@
  ],
  "truncationExplains": 72,
  "createConfig2": {
-  "checkedAt": "2026-10-11T15:39:52.857Z",
+  "checkedAt": "2026-10-12T01:50:54.440Z",
   "live": false,
   "error": "InstructionFallbackNotFound"
  }

@@ -43,6 +43,9 @@ const builders = load("builders.json");
 const migration = load("migration.json");
 const afterSwaps = load("afterwards.json");
 const dammSdk = load("dammsdk.json");
+const config2 = load("config2.json");
+const preDisagreements = config2 ? config2.plain.sdkBuildsProgramRefuses + config2.plain.sdkRefusesProgramTakes + config2.fee.sdkBuildsProgramRefuses + config2.fee.sdkRefusesProgramTakes : 0;
+const transferFee = load("transferfee.json");
 // the pitch page says the SDK agrees on every swap: do not build a page that says so when it does not
 if (!dammSdk?.swaps || dammSdk.agree !== dammSdk.pools) throw new Error("web/data/dammsdk.json: the DAMM v2 SDK check is missing or no longer agrees, and the pitch page says it does");
 const int = (x) => Math.round(x).toLocaleString("en-US");
@@ -86,6 +89,9 @@ const figures = {
   afterSwaps: int(afterSwaps?.swaps ?? 0),
   afterPools: int(afterSwaps?.withSwaps ?? 0),
   dammSdkSwaps: int(dammSdk?.swaps ?? 0),
+  preConfigs: int((config2?.plain.cases ?? 0) + (config2?.fee.cases ?? 0)),
+  preSwaps: int(transferFee?.swaps ?? 0),
+  preLives: int(transferFee?.ran ?? 0),
   buildersInputs: int(builders?.installed.designs ?? 0),
   buildersRefusedOld: int(builders?.installed.refusedByProgram ?? 0),
   buildersStoredNew: int(builders?.other.stored ?? 0),
@@ -116,6 +122,7 @@ const block = [
   ...(migration?.migrated ? [`- **Engine against migration:** in ${int(migration.agree)} of ${int(migration.migrated)} real migrations, the tokens that moved into the new pool and the price the pool opened at are what the engine says, to the unit.`] : []),
   ...(afterSwaps?.swaps ? [`- **Engine against the migrated pool:** ${int(afterSwaps.swaps)} real swaps in ${int(afterSwaps.withSwaps)} DAMM v2 pools, ${int(afterSwaps.exactOut)} of them exact-out, replayed from the DBC accounts alone: amounts, next price and fee as DAMM v2 recorded them in ${afterSwaps.agree === afterSwaps.replayed ? "every pool" : `${int(afterSwaps.agree)} of ${int(afterSwaps.replayed)} pools`}.`] : []),
   ...(dammSdk?.swaps ? [`- **Meteora's DAMM v2 SDK against the same swaps:** asked before each of those ${int(dammSdk.swaps)} swaps, from the pool as it stood, the SDK's quote math (${dammSdk.sdk}) gives the output or cost, the fee and the next price the program recorded in ${dammSdk.agree === dammSdk.pools ? "every pool" : `${int(dammSdk.agree)} of ${int(dammSdk.pools)} pools`}.`] : []),
+  ...(config2 && transferFee ? [`- **Before release, on devnet:** program 0.2.2 and SDK 2.0 are not on mainnet yet. Put to each other where the program already runs, they take and refuse the same ${int(config2.plain.cases + config2.fee.cases)} configs sent through \`createConfig2\` (${int(config2.fee.cases)} of them with a transfer fee on the base mint), and the SDK quotes ${int(transferFee.swaps)} swaps on ${int(transferFee.ran)} simulated transfer fee pools as the program makes them${transferFee.agree === transferFee.ran && preDisagreements === 0 ? "" : ", with the exceptions listed below"}.`] : []),
   ...(builders?.installed.designs ? [`- **Builders against the program:** ${figures.buildersInputs} random inputs through the SDK's six curve builders, each result simulated against the live program. It refused ${figures.buildersRefusedOld} of the configs SDK 1.5.13 returned and ${figures.buildersRefusedNew === "0" ? "none" : figures.buildersRefusedNew} of the ${figures.buildersStoredNew} the 2.0 branch returned.`] : []),
   `- **Shelf:** ${figures.tapes} tapes: ${figures.dbcTapes} DBC pools read from the chain and ${figures.pumpTapes} pump.fun launches, picked from ${figures.pumpPassed} that passed the fit check. Of ${figures.pumpConsidered} pump.fun launches recorded, ${figures.pumpShort} had under 12 orders and ${figures.pumpMisfit} failed the check.`,
 ].join("\n");
@@ -182,6 +189,34 @@ const built = (() => {
 const migrated = migration?.migrated
   ? `- \`node src/migration.ts run\` follows every completed pool of that run across its migration: ${int(migration.completed)} pools, ${int(migration.migrated)} of them migrated (${int(migration.dammV2)} to DAMM v2, ${int(migration.dammV1)} to DAMM v1, ${int(migration.twoPositions)} with the liquidity split between two positions). In ${migration.agree === migration.migrated ? `all ${int(migration.migrated)}` : `${int(migration.agree)} of ${int(migration.migrated)}`}, the tokens that moved into the new pool's vaults and the price the new pool opened at are what the engine says, to the unit, and so is the protocol's cut in the ${int(migration.protocolCutShown)} pools whose account still shows it. It did not start that way: on the first run, on 11 October, the engine agreed in 57 of them. In 92 its token amount was one unit high, because the protocol's cut of the tokens is the base side of its quote cut and not 0.2% of the tokens. In 17 it took the protocol's 0.2% from pools that carry no such fee: the rate is kept on each pool account, and it is zero for every DAMM v1 migration here and for the oldest DAMM v2 ones. The other 13 had their liquidity split between two positions, which costs up to a lamport's worth of tokens, or were small enough for the rounding to show. All of that is fixed in \`src/engine/amm.ts\`, and ${int(36)} of the migrations are kept as a test.${afterSwaps?.swaps ? `\n- \`node src/afterwards.ts run\` goes on into the new pool: the first transactions after migration of ${afterSwaps.pools === migration.dammV2 ? "each DAMM v2 pool" : `${int(afterSwaps.pools)} of the ${int(migration.dammV2)} DAMM v2 pools (the rest have traded too much since to page back to their migration on a public endpoint)`}, ${int(afterSwaps.swaps)} swaps in ${int(afterSwaps.withSwaps)} pools (${int(afterSwaps.buys)} buys; ${int(afterSwaps.exactOut)} exact-out, which is common there and unheard of on the curve; ${int(afterSwaps.dynamicSwaps)} in the ${int(afterSwaps.dynamicPools)} pools with DAMM v2's dynamic fee, ${int(afterSwaps.scheduledSwaps)} under a market-cap fee schedule, ${int(afterSwaps.compoundingSwaps)} in a compounding pool), across ${int(afterSwaps.liquidityChanges)} later additions and removals of liquidity. The engine's pool is built from the DBC config and pool accounts alone; it takes the moment of migration and later changes of liquidity from the chain, and gives every swap's amounts, next price and fee as DAMM v2 recorded them in ${afterSwaps.agree === afterSwaps.replayed ? `all ${int(afterSwaps.replayed)} pools` : `${int(afterSwaps.agree)} of ${int(afterSwaps.replayed)} pools`}.${afterSwaps.stoppedEarly ? ` ${int(afterSwaps.stoppedEarly)} pools were stopped early at an event the reader does not know.` : ""}` : ""}`
   : "- The migration check has not been run for this build.";
+// Program 0.2.2 against SDK 2.0 on devnet, before either is released.
+const prerelease = (() => {
+  if (!config2 || !transferFee) return "Not run for this build.";
+  const row = (name, c) => `| ${name} | ${int(c.cases)} | ${int(c.bothTake)} | ${int(c.bothRefuse)} | ${int(c.sdkBuildsProgramRefuses)} | ${int(c.sdkRefusesProgramTakes)} |`;
+  const fee = (label) => config2.byLabel.filter((l) => l.label.startsWith(label)).reduce((t, l) => ({ cases: t.cases + l.cases, bothTake: t.bothTake + l.bothTake, bothRefuse: t.bothRefuse + l.bothRefuse, sdkBuildsProgramRefuses: t.sdkBuildsProgramRefuses + l.sdkBuildsProgramRefuses, sdkRefusesProgramTakes: t.sdkRefusesProgramTakes + l.sdkRefusesProgramTakes }), { cases: 0, bothTake: 0, bothRefuse: 0, sdkBuildsProgramRefuses: 0, sdkRefusesProgramTakes: 0 });
+  // the run's labels, said in full
+  const said = { "0 bps, creator's to change": "0 bps that the creator may change after migration", "0 bps, immutable": "0 bps that can never change", "0 bps, revoked at zero": "0 bps with the authority revoked", "1000 bps, the cap": "1,000 bps, the cap", "10000 bps": "10,000 bps", "1001 bps": "1,001 bps", "authority option 4": "an after-migration option that does not exist", "withheld authority 2": "a withheld authority that does not exist", "no fixed supply": "a supply that is not fixed" };
+  const edges = config2.byLabel.filter((l) => l.label.startsWith("fee: ") && l.label !== "fee: valid");
+  const broken = config2.byLabel.filter((l) => l.label.startsWith("fee on: "));
+  const stored = config2.plain.bothTake + config2.fee.bothTake;
+  const asDerived = config2.plain.storedAsDerived + config2.fee.storedAsDerived;
+  return [
+    `Run on ${transferFee.generatedAt.slice(0, 10)} against ${config2.endpoint.replace("https://", "")}, with ${config2.sdk}:`,
+    "",
+    "| Sent through `createConfig2` | cases | both take it | both refuse it | SDK builds it, program refuses | SDK refuses it, program takes it |",
+    "|---|---|---|---|---|---|",
+    row("No transfer fee", config2.plain),
+    row("A transfer fee from the valid range", fee("fee: valid")),
+    ...edges.map((l) => row(`Edge: ${said[l.label.slice(5)] ?? l.label.slice(5)}`, l)),
+    ...broken.map((l) => row(`A valid fee on ${said[l.label.slice(8)] ?? l.label.slice(8)}`, l)),
+    "",
+    `${int(config2.refusedByBuilder)} more inputs were turned away by a builder before there was anything to send. ${preDisagreements === 0 ? "The SDK built nothing the program refused, and refused nothing the program would have taken." : `The two disagree on ${int(preDisagreements)} cases: ${config2.disagreements.slice(0, 4).map((d) => `${d.n} x ${d.what}`).join("; ")}.`} ${asDerived === stored ? `All ${int(stored)} configs the program stored are what the SDK derives from the builder's output, field by field, and each transfer fee config carries the fee, the withheld authority and the after-migration option that were sent.` : `${int(asDerived)} of the ${int(stored)} configs the program stored are what the SDK derives; the rest are listed in the run's output.`} Where both refuse a valid fee, it is for a reason that has nothing to do with the fee: the share of liquidity that has to be locked, the token authority option, the migration fee.`,
+    "",
+    `Swaps: ${int(transferFee.ran)} simulated lives (transfer fees of ${transferFee.feeLevels.join(", ")} basis points; ${transferFee.builders.length} of the six builders, the sixth making curves too long to fit; curves of one or two segments), ${int(transferFee.swaps)} swaps in them: ${int(transferFee.buys)} buys and ${int(transferFee.sells)} sells, ${int(transferFee.exactIn)} exact-in, ${int(transferFee.partialFill)} partial fill, ${int(transferFee.exactOut)} exact-out, and ${int(transferFee.refusals)} swaps the program refused. ${int(transferFee.dynamicFeeLives)} of the lives have a dynamic fee and ${int(transferFee.feeOnOutputLives)} take the trading fee from the output token; ${int(transferFee.firstSwapsAtMinimumFee)} first buys paid the minimum fee, which a config can allow its creator's own first swap. ${transferFee.agree === transferFee.ran ? `In all ${int(transferFee.ran)} the SDK's quote is the program's swap: the amounts with and without the trading fee, the fees, the next price, what leaves the trader and what reaches them after the transfer fee, from \`swapQuote2\` and from the quote of a builder's output alike. Where the program refused, the SDK refused too, or quoted a cost the trader did not hold. The token balances each transaction left are the ones its events add up to.` : `The SDK's quote is the program's swap in ${int(transferFee.agree)} of ${int(transferFee.ran)}; the others: ${transferFee.differing.slice(0, 4).map((d) => `#${d.n} ${d.first}`).join("; ")}.`}`,
+    "",
+    "The two transfer fee pools that existed on devnet that day (250 basis points, one partial-fill buy each, made by someone else) are quoted the same way: `node src/transferfee.ts history`.",
+  ].join("\n");
+})();
 // The same swaps, with Meteora's DAMM v2 SDK in the engine's place.
 const sdkAfter = dammSdk?.swaps
   ? `\n- \`node src/dammsdk.ts check\` puts Meteora's DAMM v2 SDK (\`@meteora-ag/cp-amm-sdk\`, ${dammSdk.sdk}) in the engine's seat for those swaps. Before each one the SDK is handed the pool as an integrator would have fetched it: the pool's own account for what does not move, with the price, liquidity, reserves and remembered volatility as they stood before that swap. Its three quote paths (exact-in, partial fill, exact-out) give the output or cost, the fee and the next price the program recorded in ${dammSdk.agree === dammSdk.pools ? `all ${int(dammSdk.pools)} pools` : `${int(dammSdk.agree)} of ${int(dammSdk.pools)} pools`}: ${int(dammSdk.swaps)} swaps, ${int(dammSdk.exactOut)} exact-out and ${int(dammSdk.partial)} partial fills among them, ${int(dammSdk.dynamicSwaps)} under the dynamic fee, ${int(dammSdk.scheduledSwaps)} under a fee schedule, ${int(dammSdk.compoundingSwaps)} in a compounding pool. Nothing was found, which is the result. \`scripts/bundle-damm-sdk.mjs\` bundles any checkout of the SDK for the same check, and \`.github/workflows/sdk.yml\` runs it against the SDK's \`main\` on every push here. It is a small sample of DAMM v2 (pools born from a DBC migration, their first swaps), not a corpus of it.`
@@ -198,6 +233,7 @@ writeFileSync(
     .replace(/<!-- probe:start -->[\s\S]*<!-- probe:end -->/, `<!-- probe:start -->\n${probed}\n<!-- probe:end -->`)
     .replace(/<!-- builders:start -->[\s\S]*<!-- builders:end -->/, `<!-- builders:start -->\n${built}\n<!-- builders:end -->`)
     .replace(/<!-- migration:start -->[\s\S]*<!-- migration:end -->/, `<!-- migration:start -->\n${migrated}${sdkAfter}\n<!-- migration:end -->`)
-    .replace(/<!-- afterwards:start -->[\s\S]*<!-- afterwards:end -->/, `<!-- afterwards:start -->\n${afterwards}\n<!-- afterwards:end -->`),
+    .replace(/<!-- afterwards:start -->[\s\S]*<!-- afterwards:end -->/, `<!-- afterwards:start -->\n${afterwards}\n<!-- afterwards:end -->`)
+    .replace(/<!-- prerelease:start -->[\s\S]*<!-- prerelease:end -->/, `<!-- prerelease:start -->\n${prerelease}\n<!-- prerelease:end -->`),
 );
 console.log("site written to docs/", figures);

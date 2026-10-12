@@ -1,0 +1,36 @@
+{
+ "generatedAt": "2026-10-12T02:22:34.712Z",
+ "sdk": "SDK 2.0 at f960aff",
+ "endpoint": "https://api.devnet.solana.com",
+ "simulations": 400,
+ "ran": 400,
+ "swaps": 563,
+ "buys": 359,
+ "sells": 204,
+ "exactIn": 309,
+ "partialFill": 141,
+ "exactOut": 113,
+ "refusals": 66,
+ "firstSwapsAtMinimumFee": 16,
+ "dynamicFeeLives": 106,
+ "feeOnOutputLives": 130,
+ "feeLevels": [
+  0,
+  1,
+  10,
+  25,
+  100,
+  250,
+  500,
+  1000
+ ],
+ "builders": [
+  "buildCurve",
+  "buildCurveWithCustomSqrtPrices",
+  "buildCurveWithMarketCap",
+  "buildCurveWithMidPrice",
+  "buildCurveWithTwoSegments"
+ ],
+ "agree": 400,
+ "differing": []
+}

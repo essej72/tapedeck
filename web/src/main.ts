@@ -1,7 +1,7 @@
 // Boot: load the data files, mount the three views, wire the tabs.
 
 import { mountDeck, type Preset } from "./deck.ts";
-import { METHOD, mountEvidence, type AfterwardsSummary, type BuildersSummary, type DammSdkSummary, type Conformance, type Evidence, type MigrationSummary, type ProbeSummary } from "./evidence.ts";
+import { METHOD, mountEvidence, type AfterwardsSummary, type BuildersSummary, type DammSdkSummary, type PrereleaseSummary, type Conformance, type Evidence, type MigrationSummary, type ProbeSummary } from "./evidence.ts";
 import { $, getJson, type Library } from "./util.ts";
 
 const VIEWS = ["deck", "evidence", "method"] as const;
@@ -14,10 +14,10 @@ function show(view: (typeof VIEWS)[number]): void {
   window.dispatchEvent(new Event("resize"));
 }
 
-const [lib, evidence, conformance, probe, builders, migration, afterwards, dammSdk] = await Promise.all([getJson<Library>("data/tapes.json"), getJson<Evidence & { presets: Preset[] }>("data/evidence.json"), getJson<Conformance>("data/conformance.json"), getJson<ProbeSummary>("data/probe.json"), getJson<BuildersSummary>("data/builders.json"), getJson<MigrationSummary>("data/migration.json"), getJson<AfterwardsSummary>("data/afterwards.json"), getJson<DammSdkSummary>("data/dammsdk.json")]);
+const [lib, evidence, conformance, probe, builders, migration, afterwards, dammSdk, config2, transferFee] = await Promise.all([getJson<Library>("data/tapes.json"), getJson<Evidence & { presets: Preset[] }>("data/evidence.json"), getJson<Conformance>("data/conformance.json"), getJson<ProbeSummary>("data/probe.json"), getJson<BuildersSummary>("data/builders.json"), getJson<MigrationSummary>("data/migration.json"), getJson<AfterwardsSummary>("data/afterwards.json"), getJson<DammSdkSummary>("data/dammsdk.json"), getJson<NonNullable<PrereleaseSummary["configs"]>>("data/config2.json"), getJson<NonNullable<PrereleaseSummary["swaps"]>>("data/transferfee.json")]);
 
 $("method").innerHTML = METHOD;
-mountEvidence(evidence, conformance, lib, probe, builders, migration, afterwards, dammSdk);
+mountEvidence(evidence, conformance, lib, probe, builders, migration, afterwards, dammSdk, { configs: config2, swaps: transferFee });
 if (lib?.tapes.length) mountDeck(lib, evidence?.presets ?? []);
 else $("view-deck").replaceChildren("The tape library is not part of this build. Run node src/flows/library.ts, then npm run build.");
 
